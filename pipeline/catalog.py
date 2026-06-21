@@ -184,3 +184,60 @@ def delete_document(doc_id, db_path=None):
         conn.commit()
     finally:
         conn.close()
+
+
+# --- threads / messages (chat history) ---------------------------------------
+
+def create_thread(matter_slug, title, db_path=None):
+    conn = _connect(db_path)
+    try:
+        now = _now()
+        cur = conn.execute(
+            "INSERT INTO threads (matter_slug, title, created, updated) VALUES (?, ?, ?, ?)",
+            (matter_slug, title[:120], now, now),
+        )
+        conn.commit()
+        return dict(conn.execute("SELECT * FROM threads WHERE id = ?", (cur.lastrowid,)).fetchone())
+    finally:
+        conn.close()
+
+
+def add_message(thread_id, role, content, citations_json=None, db_path=None):
+    conn = _connect(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO messages (thread_id, role, content, citations_json, created) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (thread_id, role, content, citations_json, _now()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def touch_thread(thread_id, db_path=None):
+    conn = _connect(db_path)
+    try:
+        conn.execute("UPDATE threads SET updated = ? WHERE id = ?", (_now(), thread_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_threads(db_path=None):
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM threads ORDER BY updated DESC").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_thread_messages(thread_id, db_path=None):
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT * FROM messages WHERE thread_id = ? ORDER BY id",
+                            (thread_id,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()

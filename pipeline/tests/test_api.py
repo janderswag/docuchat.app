@@ -107,7 +107,8 @@ class TestSafetyStructural(unittest.TestCase):
                          {"/", "/app", "/static/{asset:path}", "/health", "/answer",
                           "/matters", "/eval/matters", "/source/{filename:path}",
                           "/kb/upload", "/kb/documents", "/kb/source/{doc_id}",
-                          "/kb/documents/{doc_id}"})
+                          "/kb/documents/{doc_id}",
+                          "/chat", "/chat/threads", "/chat/threads/{thread_id}"})
 
     def test_only_the_locked_kb_delete_mutates(self):
         # No PUT/PATCH anywhere; DELETE is exposed ONLY on the structurally-locked KB

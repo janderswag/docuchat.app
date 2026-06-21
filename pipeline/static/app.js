@@ -178,6 +178,109 @@
   }
   window.viewHooks.hub = renderHub;
 
+  // --- Chat view -------------------------------------------------------------
+  // renderAnswerHtml(body) -> HTML string for an assistant turn. Basic here; Task 6
+  // upgrades it to markdown + inline source chips. Always escapes model text first.
+  window.renderAnswerHtml = window.renderAnswerHtml || function (body) {
+    var text = esc(body.answer_text || "").replace(/\n/g, "<br>");
+    var sources = (body.citations || []).map(function (c) {
+      return "<li>" + esc(c.filename) + " — p." + esc(c.page) + "</li>";
+    }).join("");
+    return "<div class='answer'>" + text + "</div>" +
+      (sources ? "<div class='sources'><b>Sources</b><ul>" + sources + "</ul></div>" : "");
+  };
+
+  function appendMsg(role, html) {
+    var box = document.getElementById("chat-messages");
+    if (!box) return;
+    var div = document.createElement("div");
+    div.className = "msg " + role;
+    div.innerHTML = html;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function sendChat() {
+    var input = document.getElementById("chat-input");
+    var q = input.value.trim();
+    if (!q) return;
+    if (!state.matter) { appendMsg("system", "<i>Choose a matter first.</i>"); return; }
+    input.value = "";
+    appendMsg("user", esc(q));
+    appendMsg("assistant", "<i class='muted'>Searching " + esc(state.matter) + " …</i>");
+    var box = document.getElementById("chat-messages");
+    var pending = box.lastChild;
+    try {
+      var body = await api("/chat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, matter: state.matter, thread_id: state.threadId || null }),
+      });
+      state.threadId = body.thread_id;
+      pending.innerHTML = window.renderAnswerHtml(body);
+    } catch (e) { pending.innerHTML = "<span style='color:var(--err)'>" + esc(e.message) + "</span>"; }
+  }
+  window.sendChat = sendChat;
+
+  function renderChat() {
+    var inner = document.querySelector("#view-chat .view-inner");
+    inner.innerHTML =
+      "<h1>New Chat</h1>" +
+      "<div class='panel' style='display:flex;gap:8px;align-items:center'>" +
+      "<label class='muted'>Matter:</label>" +
+      "<select class='matter-picker' id='chat-matter' style='max-width:340px'></select>" +
+      "<button class='btn secondary' id='chat-new'>New chat</button></div>" +
+      "<div id='chat-messages' class='chat-messages'></div>" +
+      "<div class='panel chat-inputrow'><textarea id='chat-input' rows='2' " +
+      "placeholder='Ask a question grounded in this matter&#39;s documents…'></textarea>" +
+      "<button class='btn' id='chat-send'>Send</button></div>";
+    fillMatterPickers().catch(function () {});
+    document.getElementById("chat-matter").addEventListener("change", function (e) {
+      var opt = e.target.selectedOptions[0];
+      setActiveMatter(e.target.value, opt ? opt.textContent : null);
+    });
+    document.getElementById("chat-new").addEventListener("click", function () {
+      state.threadId = null; document.getElementById("chat-messages").innerHTML = "";
+    });
+    document.getElementById("chat-send").addEventListener("click", sendChat);
+    document.getElementById("chat-input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendChat();
+    });
+  }
+  window.viewHooks.chat = renderChat;
+
+  // --- Chat History view -----------------------------------------------------
+  async function openThread(id) {
+    var msgs = (await api("/chat/threads/" + id)).messages || [];
+    state.threadId = id;
+    showView("chat");
+    var box = document.getElementById("chat-messages");
+    box.innerHTML = "";
+    msgs.forEach(function (m) {
+      if (m.role === "user") appendMsg("user", esc(m.content));
+      else appendMsg("assistant", window.renderAnswerHtml({
+        answer_text: m.content, citations: m.citations_json ? JSON.parse(m.citations_json) : [],
+      }));
+    });
+  }
+
+  async function renderHistory() {
+    var inner = document.querySelector("#view-history .view-inner");
+    var threads = [];
+    try { threads = (await api("/chat/threads")).threads || []; } catch (e) { threads = []; }
+    inner.innerHTML = "<h1>Chat History</h1>" + (threads.length
+      ? "<div class='panel'><table><thead><tr><th>Conversation</th><th>Matter</th><th>Updated</th></tr></thead><tbody>" +
+        threads.map(function (t) {
+          return "<tr style='cursor:pointer' data-thread='" + t.id + "'><td>" + esc(t.title) +
+            "</td><td class='muted'>" + esc(t.matter_slug) + "</td><td class='muted'>" +
+            esc((t.updated || "").replace("T", " ")) + "</td></tr>";
+        }).join("") + "</tbody></table></div>"
+      : "<p class='muted'>No conversations yet.</p>");
+    inner.querySelectorAll("[data-thread]").forEach(function (tr) {
+      tr.addEventListener("click", function () { openThread(tr.dataset.thread); });
+    });
+  }
+  window.viewHooks.history = renderHistory;
+
   // --- router ----------------------------------------------------------------
   function showView(name) {
     if (VIEWS.indexOf(name) === -1) return;
