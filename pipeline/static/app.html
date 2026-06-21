@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legal Document Intelligence — Local</title>
+  <!-- Local assets ONLY. No CDN / no remote fonts (air-gap). System font stack in CSS. -->
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">
+        <span class="brand-mark">§</span>
+        <span class="brand-name">Local&nbsp;DI</span>
+        <span class="brand-badge" id="brand-badge">100% local</span>
+      </div>
+      <nav id="nav">
+        <button class="nav-item" data-view="chat"><span class="nav-ico">＋</span> New Chat</button>
+        <button class="nav-item" data-view="matters"><span class="nav-ico">▦</span> Matters</button>
+        <button class="nav-item" data-view="hub"><span class="nav-ico">▤</span> Document Hub</button>
+        <button class="nav-item" data-view="history"><span class="nav-ico">◷</span> Chat History</button>
+        <button class="nav-item" data-view="settings"><span class="nav-ico">⚙</span> Settings</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="active-matter-row">Active matter:&nbsp;<span id="active-matter">none</span></div>
+      </div>
+    </aside>
+
+    <main id="content">
+      <section id="view-chat" class="view"><div class="view-inner"><h1>New Chat</h1>
+        <p class="muted">Select a matter and ask a question grounded in your documents.</p></div></section>
+      <section id="view-matters" class="view"><div class="view-inner"><h1>Matters</h1>
+        <p class="muted">Your matters — the scope for every search.</p></div></section>
+      <section id="view-hub" class="view"><div class="view-inner"><h1>Document Hub</h1>
+        <p class="muted">Upload and manage documents for the active matter.</p></div></section>
+      <section id="view-history" class="view"><div class="view-inner"><h1>Chat History</h1>
+        <p class="muted">Past conversations.</p></div></section>
+      <section id="view-settings" class="view"><div class="view-inner"><h1>Settings</h1>
+        <p class="muted">System status and privacy posture.</p></div></section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
