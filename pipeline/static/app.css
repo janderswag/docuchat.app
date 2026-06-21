@@ -72,3 +72,20 @@ th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;le
 .privacy-badge{font-weight:700;padding:8px 14px;border-radius:999px;font-size:14px}
 .privacy-badge.ok{background:#e8f7ee;color:#0a7a33;border:1px solid #8fd6a8}
 .privacy-badge.warn{background:#fdeaea;color:var(--err);border:1px solid #f3b4b4}
+
+/* Contract Review (clause checklist) */
+.clause-summary{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.clause-row{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;margin:10px 0;border-left:4px solid var(--border)}
+.clause-row.found{border-left-color:var(--ok)}
+.clause-row.missing{border-left-color:var(--warn)}
+.clause-row.unconfirmed{border-left-color:var(--muted)}
+.clause-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.clause-name{font-weight:600;font-size:15px}
+.clause-cat{color:var(--muted);font-size:12px;margin-left:6px}
+.clause-badge{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.clause-badge.found{background:#e8f7ee;color:var(--ok)}
+.clause-badge.missing{background:#fff4e5;color:var(--warn)}
+.clause-badge.unconfirmed{background:#eef1f5;color:var(--muted)}
+.clause-advisory{font-size:13px;margin:4px 0 0}
+.clause-foot{margin-top:16px;font-size:12px}

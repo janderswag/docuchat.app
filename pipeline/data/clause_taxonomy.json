@@ -1,0 +1,151 @@
+{
+  "_provenance": {
+    "name": "Contract Review clause checklist (Legal Document Intelligence)",
+    "version": "1",
+    "description": "A curated set of standard contract clauses a solo attorney checks on a commercial agreement. Each entry is a plain-English question posed to the local grounded-answer pipeline (answer() + mechanical span verifier). A clause is reported FOUND only when a span-verified, chunk-derived citation is returned (D-19/D-38); a clause the documents do not support is reported as an advisory 'potentially missing' (never a fabricated citation, never legal advice).",
+    "informed_by": "Clause CATEGORIES are informed by the CUAD (Contract Understanding Atticus Dataset) 41-label taxonomy (The Atticus Project), reviewed at /tmp/Legal-AI_Project/server/data/questions*.txt. CUAD is licensed CC BY 4.0 (https://www.atticusprojectai.org/cuad). We did NOT copy CUAD's question text: CUAD phrases every item as 'Highlight the parts (if any) of this contract related to \"X\"...'. The natural-language questions below are our own authored phrasing, written for an attorney locate-and-summarize workflow. Attribution is provided per CC BY; no CUAD answer spans, contracts, or annotations are included.",
+    "boundary": "Locate and summarize only. These questions ask WHAT the documents say; none asks for advice, drafting, an opinion, or a recommendation (CLAUDE.md product boundary). 'doc_types' is advisory display metadata describing where a clause typically appears; the full checklist is run regardless so an absent standard clause surfaces honestly as 'potentially missing'."
+  },
+  "clauses": [
+    {
+      "id": "parties",
+      "name": "Parties",
+      "category": "Formation",
+      "question": "Who are the parties to this agreement, and in what capacity or entity form does each enter into it?",
+      "doc_types": ["contract", "services_agreement", "lease", "nda"]
+    },
+    {
+      "id": "effective_date",
+      "name": "Effective Date",
+      "category": "Formation",
+      "question": "When does this agreement become effective?",
+      "doc_types": ["contract", "services_agreement", "lease", "nda"]
+    },
+    {
+      "id": "term_duration",
+      "name": "Term & Renewal",
+      "category": "Term & Termination",
+      "question": "What is the initial term or duration of this agreement, and how (if at all) does it renew or extend?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "termination",
+      "name": "Termination",
+      "category": "Term & Termination",
+      "question": "On what grounds, and with how much notice, may a party terminate this agreement?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "payment_terms",
+      "name": "Payment Terms",
+      "category": "Commercial",
+      "question": "What are the payment terms of this agreement, including amounts, invoicing, due dates, and any late charges?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "audit_rights",
+      "name": "Audit Rights",
+      "category": "Commercial",
+      "question": "Does either party have the right to audit or inspect the other party's records, books, or performance under this agreement?",
+      "doc_types": ["contract", "services_agreement"]
+    },
+    {
+      "id": "indemnification",
+      "name": "Indemnification",
+      "category": "Risk Allocation",
+      "question": "What are each party's indemnification obligations under this agreement: who must defend, indemnify, or hold harmless whom, and against what?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "limitation_of_liability",
+      "name": "Limitation of Liability",
+      "category": "Risk Allocation",
+      "question": "Does this agreement limit or cap either party's liability, or exclude any categories of damages?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "warranties",
+      "name": "Warranties & Representations",
+      "category": "Risk Allocation",
+      "question": "What representations or warranties does each party make under this agreement, and are any warranties disclaimed?",
+      "doc_types": ["contract", "services_agreement"]
+    },
+    {
+      "id": "insurance",
+      "name": "Insurance",
+      "category": "Risk Allocation",
+      "question": "What insurance coverage or certificate-of-insurance requirements does this agreement impose on either party?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "data_privacy",
+      "name": "Data Privacy & Security",
+      "category": "Risk Allocation",
+      "question": "What data privacy, data protection, or information-security obligations does this agreement impose?",
+      "doc_types": ["contract", "services_agreement"]
+    },
+    {
+      "id": "confidentiality",
+      "name": "Confidentiality",
+      "category": "Confidentiality",
+      "question": "What confidentiality or non-disclosure obligations does this agreement impose, and for how long do they last?",
+      "doc_types": ["contract", "services_agreement", "nda"]
+    },
+    {
+      "id": "ip_ownership",
+      "name": "Intellectual Property Ownership",
+      "category": "Intellectual Property",
+      "question": "Who owns the intellectual property, work product, or deliverables created or used under this agreement?",
+      "doc_types": ["contract", "services_agreement"]
+    },
+    {
+      "id": "non_compete",
+      "name": "Non-Compete & Non-Solicitation",
+      "category": "Restrictive Covenants",
+      "question": "Does this agreement restrict a party from competing with the other party, or from soliciting the other party's customers or employees?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "assignment",
+      "name": "Assignment & Anti-Assignment",
+      "category": "Boilerplate",
+      "question": "May a party assign or transfer this agreement or its rights and obligations, and is the other party's consent required?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "change_of_control",
+      "name": "Change of Control",
+      "category": "Boilerplate",
+      "question": "Does a change of control, merger, or acquisition of a party trigger any rights, consents, or obligations under this agreement?",
+      "doc_types": ["contract", "services_agreement"]
+    },
+    {
+      "id": "governing_law",
+      "name": "Governing Law",
+      "category": "Boilerplate",
+      "question": "Which state's or country's law governs the interpretation and enforcement of this agreement?",
+      "doc_types": ["contract", "services_agreement", "lease", "nda"]
+    },
+    {
+      "id": "dispute_resolution",
+      "name": "Dispute Resolution & Venue",
+      "category": "Dispute Resolution",
+      "question": "How are disputes under this agreement resolved (litigation, arbitration, or mediation), and in what venue or forum?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "force_majeure",
+      "name": "Force Majeure",
+      "category": "Boilerplate",
+      "question": "Does this agreement excuse a party's performance for force majeure or events beyond its reasonable control?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    },
+    {
+      "id": "notices",
+      "name": "Notices",
+      "category": "Boilerplate",
+      "question": "How must formal notices under this agreement be delivered, and to whom?",
+      "doc_types": ["contract", "services_agreement", "lease"]
+    }
+  ]
+}

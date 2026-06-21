@@ -2,7 +2,7 @@
    per-view data fetches. Extended task-by-task (matters/hub/chat/history/settings). */
 (function () {
   "use strict";
-  var VIEWS = ["chat", "matters", "hub", "history", "settings"];
+  var VIEWS = ["chat", "matters", "hub", "clauses", "history", "settings"];
   var state = { matter: null };
   window.appState = state;
   window.viewHooks = window.viewHooks || {};
@@ -372,6 +372,92 @@
     if (badge) badge.textContent = local ? "100% local" : "review";
   }
   window.viewHooks.settings = renderSettings;
+
+  // --- Contract Review view --------------------------------------------------
+  // One checklist row. A "found" row shows the located value with inline source chips
+  // + a citation thumbnail wired to the EXISTING /kb/highlight surface (chunk-derived
+  // page + cited-span highlight — never a new fuzzy highlighter). A "potentially_missing"
+  // row shows a clearly-distinct advisory badge and NO citation (never fabricate a
+  // citation for an absence). A "not_confirmed" row shows the prose muted with NO
+  // citation (the verifier rejected its spans — never shown as found). All model-supplied
+  // strings pass through esc() before render (D-48 XSS guard).
+  var CLAUSE_STATUS = {
+    found: { label: "Found", cls: "found" },
+    potentially_missing: { label: "Potentially missing", cls: "missing" },
+    not_confirmed: { label: "Not confirmed", cls: "unconfirmed" },
+  };
+
+  function renderClauseRow(r) {
+    var meta = CLAUSE_STATUS[r.status] || { label: esc(r.status), cls: "unconfirmed" };
+    var head =
+      "<div class='clause-head'><div><span class='clause-name'>" + esc(r.name) +
+      "</span> <span class='clause-cat'>" + esc(r.category) + "</span></div>" +
+      "<span class='clause-badge " + meta.cls + "'>" + esc(meta.label) + "</span></div>";
+
+    var bodyHtml;
+    if (r.status === "found") {
+      var cites = r.citations || [];
+      var value = md(injectChips(esc(r.value || ""), cites));
+      var thumbs = cites.map(citationThumb).join("");
+      bodyHtml = "<div class='answer'>" + value + "</div>" +
+        (thumbs ? "<div class='thumb-row'>" + thumbs + "</div>" : "");
+    } else if (r.status === "potentially_missing") {
+      // advisory only — NOT legal advice, NOT a citation
+      bodyHtml = "<p class='clause-advisory muted'>" + esc(r.value ||
+        "Not located in the documents.") + "</p>";
+    } else { // not_confirmed
+      bodyHtml = "<div class='answer muted'>" + md(injectChips(esc(r.value || ""), [])) +
+        "</div><p class='clause-advisory muted'>No span-verified citation — not shown as found.</p>";
+    }
+    return "<div class='clause-row " + meta.cls + "'>" + head + bodyHtml + "</div>";
+  }
+
+  async function runClauseReview() {
+    var out = document.getElementById("clause-results");
+    var err = document.getElementById("clause-err");
+    if (err) err.textContent = "";
+    if (!state.matter) { if (err) err.textContent = "Choose a matter first."; return; }
+    out.innerHTML = "<p class='muted'>Running the clause checklist over " +
+      esc(state.matter) + " … this can take a moment.</p>";
+    try {
+      var body = await api("/clauses/review", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matter: state.matter }),
+      });
+      var s = body.summary || {};
+      var summary = "<div class='clause-summary'>" +
+        "<span class='clause-badge found'>" + (s.found || 0) + " found</span>" +
+        "<span class='clause-badge missing'>" + (s.potentially_missing || 0) + " potentially missing</span>" +
+        "<span class='clause-badge unconfirmed'>" + (s.not_confirmed || 0) + " not confirmed</span>" +
+        "</div>";
+      var rows = (body.results || []).map(renderClauseRow).join("");
+      out.innerHTML = summary + rows +
+        "<p class='muted clause-foot'>Locate &amp; summarize only — verify each item against the cited source. This is not legal advice.</p>";
+    } catch (e) {
+      out.innerHTML = "<span style='color:var(--err)'>" + esc(e.message) + "</span>";
+    }
+  }
+
+  function renderClauses() {
+    var inner = document.querySelector("#view-clauses .view-inner");
+    inner.innerHTML =
+      "<h1>Contract Review</h1>" +
+      "<p class='muted'>Run a standard clause checklist over the active matter's documents. " +
+      "Each clause is located &amp; span-verified, or honestly flagged as potentially missing.</p>" +
+      "<div class='panel' style='display:flex;gap:8px;align-items:center'>" +
+      "<label class='muted'>Matter:</label>" +
+      "<select class='matter-picker' id='clause-matter' style='max-width:340px'></select>" +
+      "<button class='btn' id='clause-run'>Run review</button></div>" +
+      "<div id='clause-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='clause-results'></div>";
+    fillMatterPickers().catch(function () {});
+    document.getElementById("clause-matter").addEventListener("change", function (e) {
+      var opt = e.target.selectedOptions[0];
+      setActiveMatter(e.target.value, opt ? opt.textContent : null);
+    });
+    document.getElementById("clause-run").addEventListener("click", runClauseReview);
+  }
+  window.viewHooks.clauses = renderClauses;
 
   // --- router ----------------------------------------------------------------
   function showView(name) {
