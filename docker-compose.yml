@@ -1,0 +1,24 @@
+# M2-9 — single-service local deploy of the FastAPI pipeline (D-20). ONE service:
+# no Qdrant (D-34), no LlamaIndex (D-37), no UI, reranker OFF (D-36). Ollama is NOT
+# containerized — it stays on the host at 127.0.0.1:11434 (D-11), reached via
+# host.docker.internal; its bind is unchanged and OLLAMA_HOST stays unset.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: legal-doc-intelligence-api:m2-9
+    # Publish ONLY to the host loopback — never 0.0.0.0:8000 / bare 8000 (D-4).
+    ports:
+      - "127.0.0.1:8000:8000"
+    # Reach the HOST's Ollama (loopback) without changing its bind or setting
+    # OLLAMA_HOST. host.docker.internal -> host loopback (Docker Desktop proxy).
+    environment:
+      LDI_OLLAMA_URL: "http://host.docker.internal:11434"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Prebuilt LanceDB store mounted READ-ONLY at runtime (D-28: never baked into the
+    # image). Resolves to /app/.lancedb, which retrieval.py uses by default.
+    volumes:
+      - ./pipeline/.lancedb:/app/.lancedb:ro
+    restart: "no"

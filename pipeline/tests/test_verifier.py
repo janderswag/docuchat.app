@@ -102,6 +102,77 @@ class TestRefusalPathClean(unittest.TestCase):
         self.assertEqual(out["rejected_claims"], [])
 
 
+# --- M2-8a: escape-aware normalization (html.unescape + backslash-strip) ----------
+# Real M2-8 grounding chunks (greenfield_castellano_lease.pdf p1) whose text carries
+# real double-quotes + PDF reflow newlines. The model's spans escaped those quotes
+# (F-014 backslash \" , F-016 HTML entity &quot;) which the M2-6 normalization did
+# not cover -> truthful, correctly-grounded spans were false-rejected. M2-8a recovers
+# them WITHOUT making the verifier accept any fabrication.
+_LEASE_C1 = {
+    "chunk_id": "C1", "source_filename": "greenfield_castellano_lease.pdf", "page_number": 1,
+    "char_start": 40, "char_end": 264,
+    "text": ('# COMMERCIAL LEASE AGREEMENT\nThis Commercial Lease Agreement (this "Lease") is '
+             'made between Greenfield \nProperty Holdings LLC ("Landlord") and Yara Castellano, '
+             'an individual doing \nbusiness as Castellano Studios ("Tenant").\n'),
+}
+_LEASE_C3 = {
+    "chunk_id": "C3", "source_filename": "greenfield_castellano_lease.pdf", "page_number": 1,
+    "char_start": 264, "char_end": 414,
+    "text": ('## SECTION 1 — PREMISES\n1.1 Landlord leases to Tenant the premises located at '
+             '1147 Aldergrove Avenue, \nUnit 3B, Crestwood, OH 44122 (the "Premises").\n'),
+}
+
+
+class TestEscapedSpansVerify(unittest.TestCase):
+    def test_f014_backslash_escaped_quotes_in_span_verify(self):
+        # F-014: model span = Greenfield Property Holdings LLC (\"Landlord\")
+        span = r'Greenfield Property Holdings LLC (\"Landlord\")'
+        ans = ('The Landlord is Greenfield Property Holdings LLC '
+               '[document: greenfield_castellano_lease.pdf, page: 1, chunk: C1, '
+               'span: "' + span + '"].')
+        out = verify_answer(ans, [_LEASE_C1])
+        self.assertEqual(out["rejected_claims"], [])
+        self.assertEqual(len(out["citations"]), 1)
+        c = out["citations"][0]
+        self.assertEqual(c["page"], 1)
+        self.assertEqual(c["filename"], "greenfield_castellano_lease.pdf")
+        # verified offsets bound the real (unescaped) text on the page
+        self.assertGreaterEqual(c["char_start"], _LEASE_C1["char_start"])
+        self.assertLessEqual(c["char_end"], _LEASE_C1["char_end"])
+
+    def test_f016_html_entity_quotes_in_span_verify(self):
+        # F-016: model span used &quot; HTML entities around Premises
+        span = ('1.1 Landlord leases to Tenant the premises located at 1147 Aldergrove Avenue, '
+                'Unit 3B, Crestwood, OH 44122 (the &quot;Premises&quot;)')
+        ans = ('The premises are at 1147 Aldergrove Avenue '
+               '[document: greenfield_castellano_lease.pdf, page: 1, chunk: C3, '
+               'span: "' + span + '"].')
+        out = verify_answer(ans, [_LEASE_C3])
+        self.assertEqual(out["rejected_claims"], [])
+        self.assertEqual(len(out["citations"]), 1)
+        self.assertEqual(out["citations"][0]["page"], 1)
+
+
+class TestEscapedFabricationStillRejected(unittest.TestCase):
+    def test_fabricated_span_with_html_entities_is_still_rejected(self):
+        # The escape-aware normalization must only recover truthful escaped spans, never
+        # let a fabrication through: this entity-laden span's text is in no chunk.
+        ans = ('The penalty is huge [document: greenfield_castellano_lease.pdf, page: 1, '
+               'chunk: C1, span: "a &quot;liquidated penalty&quot; of $9,999,999 per breach"].')
+        out = verify_answer(ans, [_LEASE_C1])
+        self.assertEqual(out["citations"], [])
+        self.assertEqual(len(out["rejected_claims"]), 1)
+        self.assertIn("does not overlap", out["rejected_claims"][0]["reason"])
+
+    def test_backslash_escaped_fabrication_is_still_rejected(self):
+        ans = ('See [document: greenfield_castellano_lease.pdf, page: 1, chunk: C1, '
+               'span: "the \\"Subtenant\\" Marcus Webb of Aldergrove Holdings"].')
+        out = verify_answer(ans, [_LEASE_C1])
+        self.assertEqual(out["citations"], [])
+        self.assertEqual(len(out["rejected_claims"]), 1)
+        self.assertIn("does not overlap", out["rejected_claims"][0]["reason"])
+
+
 class TestRealPresentFactsVerifyEndToEnd(unittest.TestCase):
     def test_f004_f009_f046_verify_against_correct_chunk(self):
         for fid, matter in (("F-004", PEMBERTON), ("F-009", PEMBERTON),

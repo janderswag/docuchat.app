@@ -1,0 +1,19 @@
+# M2-9 — keep document bodies, the vector store, secrets, results, and caches OUT of
+# the build context/image (D-28, hard safety rule #7). These come in via runtime
+# volume mounts, never COPY.
+documents/
+pipeline/.lancedb/
+**/.lancedb/
+.env
+.env.*
+**/.env
+**/.env.*
+eval/results/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+.git/
+.gitignore
+# Build/dev artifacts not needed in the image
+pipeline/tests/
+**/.pytest_cache/

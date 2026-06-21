@@ -11,10 +11,17 @@ span is a substring of the NORMALIZED text of the chunk the claim points to. Eac
 grounding chunk's ``text`` is exactly its page slice ``page_text[char_start:char_end]``,
 so a substring match is, by construction, an overlap within [char_start, char_end];
 the matched location is mapped back to raw offsets and reported as page offsets
-(``char_start + local``). Normalization follows the M2-1/M2-2 contract — collapse
+(``char_start + local``). Normalization follows the M2-1/M2-2 contract — decode HTML
+entities (``&quot;`` ...), strip backslash-escaped quotes (``\\"`` -> ``"``), collapse
 whitespace, de-wrap ``-\\n`` to ``-`` keeping the hyphen, drop quote characters,
-lowercase — so PDF reflow does not cause a false reject.
+lowercase — applied symmetrically to span and chunk so PDF reflow and the model's
+quote-escaping (M2-8a: F-014 ``\\"``, F-016 ``&quot;``) do not cause a false reject.
+The added decoding only removes characters from the comparison; it can recover a
+truthful escaped span but can never make a fabricated span match — the verifier still
+fails conservatively.
 """
+
+import html
 
 from answering import REFUSAL
 
@@ -23,20 +30,42 @@ _QUOTES = "\"'“”‘’"
 
 def _norm_map(text):
     """Normalize per the M2-1/M2-2 contract, keeping a map from each normalized char
-    back to its raw index in ``text`` (so a match can be reported as raw offsets)."""
-    out, omap, i, n = [], [], 0, len(text)
+    back to its raw index in ``text`` (so a match can be reported as raw offsets).
+
+    Phase 1 de-escapes the raw text — decode HTML entities and drop backslashes that
+    escape a quote — pairing every resulting char with the raw index it came from.
+    Phase 2 applies the reflow/quote/case contract on those pairs, so the offset map
+    stays anchored to raw indices even after a multi-char entity collapses (M2-8a)."""
+    pairs = []  # (char, raw_index)
+    i, n = 0, len(text)
     while i < n:
         c = text[i]
-        if c == "-" and i + 1 < n and text[i + 1] == "\n":
-            out.append("-"); omap.append(i); i += 2; continue
+        if c == "\\" and i + 1 < n and text[i + 1] in _QUOTES:
+            i += 1; continue  # drop the escaping backslash; the quote is dropped below
+        if c == "&":
+            j = text.find(";", i + 1)
+            if 0 < j - i <= 10:
+                ent = text[i:j + 1]
+                dec = html.unescape(ent)
+                if dec != ent:  # a real entity — map each decoded char to the entity start
+                    for d in dec:
+                        pairs.append((d, i))
+                    i = j + 1; continue
+        pairs.append((c, i)); i += 1
+
+    out, omap, p, m = [], [], 0, len(pairs)
+    while p < m:
+        c, idx = pairs[p]
+        if c == "-" and p + 1 < m and pairs[p + 1][0] == "\n":
+            out.append("-"); omap.append(idx); p += 2; continue
         if c in _QUOTES:
-            i += 1; continue
+            p += 1; continue
         if c.isspace():
-            j = i
-            while j < n and text[j].isspace():
-                j += 1
-            out.append(" "); omap.append(i); i = j; continue
-        out.append(c.lower()); omap.append(i); i += 1
+            out.append(" "); omap.append(idx); p += 1
+            while p < m and pairs[p][0].isspace():
+                p += 1
+            continue
+        out.append(c.lower()); omap.append(idx); p += 1
     return "".join(out), omap
 
 

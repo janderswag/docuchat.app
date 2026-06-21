@@ -1,0 +1,8 @@
+# M2-9 runtime (SERVING) deps ONLY — the lean subset needed to serve queries
+# (api -> answer -> retrieve -> verify). Ingestion deps (pymupdf, docling) and the
+# Torch reranker are intentionally EXCLUDED: the reranker is OFF (D-36) and lazy-
+# imported, and ingestion happens on the host, not in the serving container. pydantic
+# comes transitively with fastapi; pyarrow with lancedb. Pins match the host venv.
+fastapi==0.118.0
+uvicorn==0.34.3
+lancedb==0.33.0
