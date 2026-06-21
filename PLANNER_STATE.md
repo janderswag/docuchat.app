@@ -12,10 +12,23 @@ Record every decision into `DECISIONS.md`; keep `RUN_STATE.md` + `TASKS_M2.md` c
 install at its gate.
 
 ## Current position
-**M2-8 = CONDITIONAL PASS** (page+span capability proven). **Next task = M2-8a** (verifier
-normalization fix: `html.unescape` + strip backslash-escaped quotes + F-042 alternate-page → targeted
-re-run → FINAL PASS ≥95%). The M2-8a Builder prompt has been written (see the last Planner turn /
-re-derive from `RUN_STATE.md` Next task + `TASKS_M2.md` M2-8a + `TEST_PLAN.md` §6).
+**M2-3 capability complete (D-44); M2/M3 acceptance-gap closeout underway (D-45).** M2-8 = FINAL PASS
+(D-40), M2-7 (D-41), M2-9 (D-43) all Tester-confirmed. A **CE_PLAN cross-reference** (§2 SC-1..SC-7 /
+§14) showed D-44's "complete" was capability-level (page+span eval) and surfaced real CE_PLAN acceptance
+gaps. **M2/M3 gap-closure DONE (D-47).** The 7-task batch landed + was Tester-confirmed and Planner-verified
+(commits `89c7c66`→`c2cc89f`; baseline `.lancedb`/M2-8 byte-identical; new stores git-ignored — I
+checked the git/filesystem myself, didn't just trust the report). SC-1/SC-2(capability)/§8/hybrid(off,
+negative lift)/SC-7/SC-3-6 all 🟢; **lone yellow = `<3s` first-token (~3.6s, NOT met)** — §2/M3
+quantitative target, hardware-hypothesis for D-22 (unproven). The SC-1…SC-7 demo-GO gate is met but
+M3 acceptance isn't 100% (latency) — **do not relabel "complete."** **Next = OWNER decision** (relay
+auto-starts nothing): CE_PLAN **M4 attorney-demo prep** / chase latency first / other. **Surface to the
+owner:** the latency yellow (validate on real hardware, not assume), and two loose ends — (1) commit the
+uncommitted prior-milestone code (M2-7/M2-9/UI); (2) egress-log discipline (logs must carry real
+samples). Still owner-gated: M4-5 hardware (no purchase on spec, D-21/D-22), M6 real data (written
+approval); each carries its own sub-fork to surface first. **Formal CE_PLAN Milestone-4 attorney demo needs SC-1..SC-7
+all green.** Still owner-gated beyond M3: **M4-5 hardware** (after demo; no purchase on spec, D-21/D-22)
+and **M6 real data** (onsite, written approval; hard rules #1–#2) — each carries its own sub-fork to
+surface first.
 
 ## Remaining M2-3 sequence (after M2-8a)
 - **M2-7** — FastAPI loopback HTTP surface (D-13; LlamaIndex was dropped, D-37, but FastAPI stands).

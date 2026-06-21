@@ -7,6 +7,19 @@ _Last updated: 2026-06-20_
 
 ## Status
 
+**🎉 MILESTONE 2-3 COMPLETE (2026-06-20, D-44).** All M2 build tasks done + independently
+Tester-confirmed: page-accurate ingest → chunk+SAC → LanceDB → matter-pre-filter → grounded answering →
+**mechanical span verification**, exposed over a **loopback FastAPI surface** (M2-7, D-41) and packaged
+as **single-service Docker Compose** (M2-9, D-43). **M2-8 = FINAL PASS** at the page+span bar (D-40):
+**62/63 = 98.4% (≥95%)**, **0 displayed fabrications**, NF 9/9, DRM 2/2, under egress-monitored SC-6
+(D-31). The custom pipeline **delivers the verifiable page+span citation the turnkey stack proved
+impossible** (M1, D-29). **Still owner-gated, NOT started:** M4-5 production hardware (after the attorney
+demo; no purchase on spec, D-21/D-22) and M6 real attorney data (onsite, written approval; hard rules
+#1–#2). Relay is **idle at a clean milestone boundary** awaiting owner direction. _History below is the
+M1 record._
+
+---
+
 **🎉 MILESTONE 1 COMPLETE — M1-13 = PASS (filename level); M2-3 build AUTHORIZED (owner, 2026-06-20,
 D-33).** Full 72-question run done + independently reproduced, egress-monitored (0 non-loopback, SC-6,
 D-31). Final metrics: **citation 63/63 = 100%** (filename, D-29/D-32), **0 fabricated**, **NF refusal
@@ -169,20 +182,83 @@ disable done; M1-10 air-gap is **egress-monitored** (D-31), not physical disconn
 
 ## Next task
 
-**M2-8a — Normalization fix + targeted re-run → FINAL PASS.** Milestone 2-3 underway (`TASKS_M2.md`).
-**M2-8 = CONDITIONAL PASS (capability proven):** full-72 page+span run, egress-monitored (D-31) →
-**0 displayed fabrications** (hard-zero holds; verifier fails **conservatively**), **NF 9/9**, **DRM
-2/2**; **page+span 93.7% strict**, under the ≥95% gate **only** from verifier **false-rejects of
-truthful** answers using uncovered escapes (**F-014** `\"`, **F-016** `&quot;`). **Next (M2-8a, no new
-install):** extend the M2-6 verifier normalization to **`html.unescape` + strip backslash-escaped
-quotes** (confirmed to fix F-014/F-016 → ≥96.8%); apply the Reviewer's **F-042 alternate-page** note
-into TEST_PLAN §6 (added §6.5); **targeted re-run** of F-014/F-016/F-042 + any other entity/backslash
-false-rejects across the 72 → flip to **FINAL PASS ≥95%**; verifier must still fail conservatively
-(never false-accept a fabrication). **⛔ F-026 is a GENUINE miss — do NOT force-pass it:** retrieval
-surfaced only the page-3 counsel occurrence → the model falsely refused a present fact (a **recall**
-gap, not a verifier bug). Expected FINAL ≈ **62/63 (≥95%)** with F-026 the lone real miss; revisit
-later via top_k/reranker/chunking (see `TASKS_M2.md` Risks). Then **M2-7** (FastAPI loopback surface,
-D-13). **Carry-forward risk:** real-PDF section detection before M6.
+**Milestone 2-3 substantively COMPLETE (D-42) — owner direction needed for the next milestone.**
+**✅ M2-7 = done** (D-41, Tester-confirmed 2026-06-20): thin FastAPI loopback surface (`pipeline/api.py`)
+over `answer()` — `POST /answer` + `GET /health`, bound `127.0.0.1:8000` only, no auth, no action
+routes (PUT/DELETE/PATCH → 405), matter validated against the D-35 allowlist, **HTTP body
+byte-identical to a direct `answer()` call** (no model-asserted page reintroduced), 0 non-loopback
+egress (`eval/results/egress-2026-06-20-m2-7.log`), clean shutdown. Install was FastAPI+uvicorn, pinned.
+**Only M2-9 (Docker Compose, D-20) remains in M2 — deferred + owner-gated (new Docker/Compose install);
+do NOT start without explicit owner approval.**
+
+**✅ M2-8 = FINAL PASS at the page+span bar (D-39/D-40), independently Tester-confirmed (2026-06-20).**
+M2-8a landed the verifier normalization fix — **`html.unescape` + strip backslash-escaped quotes**,
+applied **symmetrically** to span + chunk text (on top of collapse-ws / `-\n`→`-`) — plus the F-042
+**alternate-page** rule (TEST_PLAN §6.5) encoded in the verification path. Targeted re-run flipped
+exactly **F-014** (`\"`) and **F-016** (`&quot;`) → verified (both chunk-derived **page 1**), **zero**
+other facts changed (no regressions / no spurious verifications); conservative-failure invariant HELD
+(a self-authored escaped-but-false span still rejects — no false-accept). **Final metrics:** page+span
+citation **62/63 = 98.4% (≥95%)**, **0 displayed fabrications** (hard zero), **NF refusal 9/9 = 100%**,
+**DRM 2/2 = 100%** (no cross-matter). **F-026 is the lone genuine miss — NOT force-passed** (a
+retrieval-recall gap: page-1 caption occurrence not surfaced → model falsely refused; revisit via
+top_k/reranker/chunking, `TASKS_M2.md` Risks). Loopback-only re-verified
+(`eval/results/egress-2026-06-20-m2a.log`, 0 non-loopback, SC-6/D-31); raw re-run →
+git-ignored `eval/results/run-2026-06-20-m2-rerun.jsonl`. **The custom M2-3 pipeline clears the
+verifiable page+span bar the turnkey stack proved impossible (M1, D-29).**
+
+**Active workstream = SAM-style local UI (CE_PLAN M4 attorney-demo direction, owner-chosen 2026-06-20).**
+The owner chose to build a polished, SAM-inspired but **100% local/air-gapped** UI as the M4-demo surface:
+left nav (Chat · Matters · Document Hub · Chat History · Settings), matter-scoped upload+chat with cited
+answers, retrieved-page thumbnails + **cited-span highlight**, privacy "100% local · 0 outbound" badge —
+all over the existing pipeline, into a **dedicated `.lancedb_kb`** store (eval stores untouched). Plan:
+**`docs/superpowers/plans/2026-06-20-sam-style-ui.md`** (7 tasks). Being built as a single Builder batch
+(no-laziness mandate), then Reviewer audits all + Tester verifies all + run locally on `127.0.0.1:8000`.
+Curated to the product's hard rules (cited retrieval only — NO drafting/advice/actions/CDN/cloud). _The
+M2/M3 gap-closure (D-47) is done; latency remains the lone yellow; M4-5 hardware + M6 real data stay
+owner-gated._
+
+**(Prior boundary) M2/M3 gap-closure DONE; latency the lone yellow (D-47).** The 7-task gap-closure batch landed + was independently Tester-confirmed and
+Planner-verified (commits `89c7c66`→`c2cc89f`; baseline `.lancedb`/M2-8 byte-identical; new stores
+`.lancedb_full`/`.lancedb_hyb` git-ignored). **SC scorecard:** SC-1 🟢, SC-2 🟢 (capability; real-scan
+validation = M6), §8 quarantine 🟢, hybrid 🟢 (off by default — negative lift at this scale), SC-7 🟢,
+SC-3/4/5/6 🟢. **Lone yellow: `<3s` first-token NOT met** (~3.6s median; instrumented honestly) — a
+§2/M3 quantitative target; the "production hardware fixes it" read is a **hypothesis** for D-22, not
+proven. **Precise gate:** the CE_PLAN §2 "GO for attorney demo" gate is worded on SC-1…SC-7 → those are
+all 🟢, so the demo-GO gate is met; but the `<3s` target is open, so **do not relabel M2/M3 "complete."**
+**Owner's call next** (relay auto-starts nothing): proceed to CE_PLAN **M4 attorney-demo prep** /
+chase latency first / something else. **Two loose ends to clear regardless:** (1) commit the uncommitted
+prior-milestone code (M2-7/M2-9/UI); (2) latency is hardware-hypothesis, validate on D-22. Still
+owner-gated: M4-5 hardware (no purchase on spec, D-21/D-22), M6 real data (written approval).
+
+**(Superseded framing) M2-9 + D-44 milestone wrap.** M2-9 is
+done (D-43, Tester-confirmed + Planner-verified against `Dockerfile`/`docker-compose.yml`): single-service
+Compose, Ollama on host via `host.docker.internal` (bind unchanged, `OLLAMA_HOST` unset), published
+**`127.0.0.1:8000:8000` only**, LanceDB volume-mounted read-only, `/answer` parity with `answer()`, 0
+non-loopback egress, clean teardown. **⚠ Binding deploy constraint (D-43a): COMPOSE-ONLY** — a bare
+`docker run -p 8000:8000` would expose `0.0.0.0` off-host (hard rule #4); deploy via `docker compose`
+only.
+
+The remaining milestones are **owner decisions, none auto-started**:
+- **M4-5 — production hardware:** only after the attorney sees a demo; **no purchase on spec**
+  (D-21/D-22).
+- **M6 — real attorney data:** onsite, on attorney hardware, after **written** approval (hard rules
+  #1–#2).
+- **Optional pre-M4 / pre-M6 prep** (still synthetic, no new milestone gate): latency/thinking-mode
+  tuning pass; M6 real-PDF section-heading robustness validation on heading-less PDFs.
+
+**Open carry-forwards (none blockers; full list in `TASKS_M2.md` Risks):** F-026 recall gap;
+`answering._norm` escape-alignment (fails safe); optional API hardening (`openapi_url=None`); compose-only
+deploy guard/README; image leanness; Linux/CUDA portability of the host-Ollama path (D-43b).
+- **Pre-M4 latency/thinking-mode tuning pass:** size a tuning pass on qwen3 "thinking" before any demo
+  (M2 pipeline already much faster than M1 — mean ~6.9s/Q — but first-token vs the <3s CE_PLAN §2
+  target is not yet instrumented).
+- **M4-5 hardware:** owner decision only, after the attorney sees a demo; **no purchase on spec**
+  (D-21/D-22).
+- **M6 real-PDF readiness:** validate section-heading detection on heading-less real-style PDFs before
+  any real-data work (onsite, written approval).
+**Carry-forward risks (none blockers):** (a) real-PDF section detection before M6; (b) F-026 recall
+gap; (c) `answering._norm` not yet on the verifier's escape-normalization contract (precision-only,
+fails safe); (d) optional `openapi_url=None` API hardening — all tracked in `TASKS_M2.md` Risks.
 _(M2 pipeline latency is much better than M1's AnythingLLM path — mean ~6.9s/median 7.0s/max 17.5s in
 the M2-8 run; the ~19s figure below is the M1-10/turnkey number.)_
 

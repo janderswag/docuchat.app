@@ -152,6 +152,163 @@
   M1 §3/§4 filename-level definition (D-29) remains the historical M1 record. (CE_PLAN §2, §11, D-19,
   D-29, D-38)
 
+- **D-40 — M2-8 = FINAL PASS at the page+span bar (D-39); M2-8a normalization fix landed and
+  independently confirmed (2026-06-20).** The M2-6 verifier normalization was extended to
+  **`html.unescape` (decode HTML entities) + strip backslash-escaped quotes**, applied **symmetrically**
+  to both the cited span and the chunk text (on top of collapse-ws / `-\n`→`-`), and the F-042
+  **alternate-page** rule (§6.5) was encoded in the scoring/verification path. Targeted re-run flipped
+  exactly **F-014** (`\"Landlord\"`) and **F-016** (`&quot;Premises&quot;`) from false-reject →
+  verified (both chunk-derived **page 1**), with **zero** other facts changed (no regressions, no
+  spurious verifications). **Independently reproduced by the Tester** (fresh `answer()` calls + a
+  self-authored escaped-but-false span that still rejects → conservative-failure invariant HELD; the
+  loosening recovers truthful escaped spans without enabling any false-accept). **Final metrics at the
+  D-39 bar:** page+span citation accuracy **62/63 = 98.4% (≥95%)**, **0 displayed fabrications** (hard
+  zero), **NF refusal 9/9 = 100%**, **DRM 2/2 = 100%** (no cross-matter). **F-026 is the lone genuine
+  miss** — a retrieval-recall gap (model falsely refused a present fact whose page-1 caption occurrence
+  was not surfaced), **correctly NOT force-passed**; revisit via top_k/reranker/chunking. Egress
+  re-verified loopback-only (`eval/results/egress-2026-06-20-m2a.log`, 0 non-loopback, SC-6/D-31). The
+  M2-3 custom pipeline thus **clears the verifiable page+span bar the turnkey stack proved impossible**
+  (M1, D-29). Remaining M2 build tasks: **M2-7** (FastAPI loopback surface, D-13) and **M2-9** (Docker
+  Compose, D-20). (CE_PLAN §2, §11; D-19, D-38, D-39)
+
+- **D-41 — M2-7 HTTP surface = FastAPI + uvicorn, loopback-only, NO auth (owner, 2026-06-20).** Owner
+  approved the **FastAPI + uvicorn** install into the pipeline venv (owner-gated, pinned versions
+  recorded, one step — no other new deps). The M2-7 API is a **single-user loopback service**: bind
+  **`127.0.0.1` only, never `0.0.0.0`** (D-4), and **no API auth** — the loopback bind is the boundary
+  for the solo-attorney single-tenant v1 (D-23, D-25 no remote access in v1). The answering path keeps
+  **no action tools and no network egress** (D-2); citations stay **chunk-derived** (D-38) and
+  mechanically verified (D-19/M2-6). First slice: thin app over the existing `answer(question, matter)`
+  (`POST /answer` → answer + chunk-derived citations + `rejected_claims`) + `GET /health`. (CE_PLAN
+  §6.6, D-13, D-37 — FastAPI portion of D-13 stands though LlamaIndex was dropped.)
+
+- **D-42 — Milestone 2-3 substantively COMPLETE: the custom pipeline delivers verifiable page+span
+  citation the turnkey stack proved impossible (2026-06-20).** With **M2-8 = FINAL PASS** (D-40,
+  page+span 62/63 = 98.4%, 0 displayed fabrications, NF 9/9, DRM 2/2) and **M2-7 done** (D-41, FastAPI
+  loopback HTTP surface, Tester-confirmed: loopback-only bind, no-action routes, byte-identical
+  `/answer` parity with `answer()`, 0 non-loopback egress), the M2-3 build goal (CE_PLAN §5–§11,
+  D-13..D-19) is **met on the synthetic corpus**: PyMuPDF page-accurate ingest → chunk+SAC → LanceDB →
+  matter-pre-filtered retrieval → grounded `qwen3:14b` answering → **chunk-derived (D-38) + mechanically
+  span-verified (D-19) page+span citations** over a loopback FastAPI surface, all egress-monitored
+  (D-31). **Still open in M2:** **M2-9** (Docker Compose deployment, D-20) — **deferred + owner-gated**
+  (new install: Docker/Compose); do not start without explicit owner approval at the relay gate.
+  **Carry-forward (not blockers):** F-026 recall gap, `answering._norm` escape-alignment, optional
+  `openapi_url=None` hardening (all in `TASKS_M2.md` Risks). **Does NOT authorize** production hardware
+  purchase (M4-5 — owner, after demo, D-21/D-22) or real data (M6 — onsite, written approval). The open
+  pre-M4 items (latency/thinking-mode tuning; real-PDF section-heading robustness before M6) are owner
+  forks, not started here. (CE_PLAN §11, §14; D-40, D-41)
+
+- **D-43 — M2-9 deploy = single-service Docker Compose; container→host-Ollama via `host.docker.internal`;
+  COMPOSE-ONLY loopback boundary (owner-chosen M2-9, 2026-06-20; Planner-verified against the artifacts).**
+  Refines **D-20** for the LanceDB build: the Compose stack is **one service** — the FastAPI pipeline
+  (`Dockerfile` + `docker-compose.yml`) — with **no Qdrant** (D-34), **no LlamaIndex** (D-37), **no UI**
+  (deferred, not built), reranker **OFF** (D-36). **Ollama stays on the host** at `127.0.0.1:11434`
+  (D-11), reached from the container via a **dedicated `LDI_OLLAMA_URL=http://host.docker.internal:11434`**
+  env (deliberately separate from Ollama's own bind var) + `extra_hosts: host.docker.internal:host-gateway`;
+  **Ollama's bind is unchanged and `OLLAMA_HOST` stays unset** (hard rule re D-11). LanceDB is **volume-
+  mounted read-only** at runtime, **never baked into the image** (D-28/#7); the image COPYs only
+  `pipeline/*.py` + serve-only deps (no doc bodies, no `.env`, no `.lancedb`). _Planner confirmed by
+  reading `docker-compose.yml` + `Dockerfile`, not by the Tester's say-so._
+  Three binding constraints recorded (each tied to a plan rule, not optional polish):
+  - **(a) Loopback boundary is COMPOSE-ONLY.** The container CMD binds `0.0.0.0` **inside the container
+    network namespace** (necessary for port publishing); the loopback guarantee comes from Compose's
+    `ports: ["127.0.0.1:8000:8000"]`. A bare `docker run -p 8000:8000 <image>` would publish to
+    `0.0.0.0` and expose the service **off-host — a hard-rule #4 / D-4 violation.** **Deploy via
+    `docker compose` only; never `docker run -p` this image.** (Not executed in testing precisely
+    because it would expose `0.0.0.0`.)
+  - **(b) Portability caveat.** `host.docker.internal:host-gateway` is a **Docker-Desktop** convenience.
+    On native Linux a `127.0.0.1`-bound host Ollama is **not** container-reachable without host
+    networking / explicit gateway routing — reachability **and** egress (D-31) must be **re-proven**
+    before any Linux/CUDA deploy (relevant to a future D-22 hardware path).
+  - **(c) Egress posture.** Live run was egress-monitored (D-31): zero non-loopback (host loopback
+    ingress `127.0.0.1:8000` + container→host Ollama landing on `127.0.0.1:11434`); the
+    `eval/results/egress-2026-06-20-m2-9.log` is a **git-ignored, regenerable local artifact** (D-28),
+    not committed. (CE_PLAN §6.8, §13; D-20, D-11, D-28, D-41; hard rule #4)
+
+- **D-44 — MILESTONE 2-3 COMPLETE (2026-06-20).** All M2 build tasks are done and independently
+  Tester-confirmed: M2-1…M2-6 (page-accurate ingest → chunk+SAC → LanceDB → matter-pre-filter →
+  grounded answering → mechanical span verification), **M2-8 = FINAL PASS** at the page+span bar (D-40:
+  62/63 = 98.4% ≥95%, **0 displayed fabrications**, NF 9/9, DRM 2/2; conservative verifier), **M2-7**
+  (loopback FastAPI surface, D-41), **M2-9** (Compose deploy, D-43). **Result vs the plan:** the custom
+  pipeline **delivers the verifiable page+span citation the turnkey stack proved impossible** (M1, D-29)
+  and holds the CE_PLAN §2 **SC-6 zero-egress** posture throughout (egress-monitored, D-31) — the M2-3
+  goal (CE_PLAN §5–§11, D-13..D-19) is **met on the synthetic corpus**. **What this does NOT authorize
+  (still owner-gated, hard rules #1–#2 / D-3 / D-21–D-22):** production hardware purchase (M4-5, only
+  after the attorney sees a demo; no purchase on spec) and any real attorney/client data (M6, onsite, on
+  attorney hardware, after **written** approval). **Owner-deferred next-step options** (none auto-started
+  by the relay): pre-M4 latency/thinking-mode tuning; M4-5 hardware decision; M6 real-PDF section-heading
+  robustness validation (still synthetic). **Open carry-forwards (none blockers):** F-026 recall gap;
+  `answering._norm` escape-alignment (fails safe); optional API hardening (`openapi_url=None`,
+  validate-matter-before-embed); compose-only deploy guard/README; image leanness. (CE_PLAN §11, §14;
+  D-40, D-41, D-42, D-43)
+
+- **D-45 — SC-5 demo source-viewer UI built; "M2-3 complete" (D-44) reframed to capability-level after
+  a CE_PLAN cross-reference exposed open M2/M3 acceptance gaps (2026-06-20).** A cross-reference of the
+  build against **CE_PLAN §2 (SC-1..SC-7)** and the **§14 milestone acceptance** showed the internal
+  "Milestone 2-3 COMPLETE" label (D-44) was scored on the **page+span eval only** and is narrower than
+  CE_PLAN's M2/M3 acceptance. **Honest status:** the citation-grade *capability* is complete and proven,
+  but these CE_PLAN acceptance items are **open**: **SC-2** (OCR of ≥5 image-only/scanned PDFs — the
+  pipeline is born-digital only, `do_ocr=False`), **SC-1** (20–50 doc, multi-format corpus — we have 6
+  born-digital PDFs), **hybrid dense+BM25 retrieval** (dense-only built; reranker off), **<3s
+  first-token latency** (uninstrumented, ~7s/Q), and **SC-7** (redeploy-from-scripts proof). These are
+  now tracked as the **M2/M3 acceptance-gap closeout** (`TASKS_M2.md`). **SC-5 is the first closed:**
+  a thin, read-only **demo source-viewer UI** was added to the existing loopback FastAPI app — `GET /`
+  (static page), `GET /matters` (store allowlist), `GET /source/{file}` (**path-locked** to
+  `documents/synthetic_corpus/pdf`, synthetic only) — so a citation opens the original PDF **at the
+  cited page** (`#page=N`), satisfying SC-5's "expose snippets **and** open the original at the cited
+  page." **No new deps** (Starlette `FileResponse`/`HTMLResponse`); `/answer` untouched (M2-7 parity
+  holds — prose cleanup is client-side display only); path-traversal rejected (tested first, TDD);
+  read-only (no mutating routes); loopback-only. The viewer is a **local-run** surface (the corpus dir
+  is git-ignored / absent in the M2-9 image by design). (CE_PLAN §2 SC-5, §14 M3; D-41, D-44)
+
+- **D-46 — G-SC2 OCR path done (SC-2 at EXTRACTION level only); Tesseract is the local OCR engine
+  (2026-06-20, Tester-confirmed).** Per-page text-vs-image routing (`extract_pages_ocr`): PyMuPDF
+  text-layer pages stay on the fast path (born-digital output byte-identical), image-only pages route to
+  **Tesseract** (`pytesseract==0.3.13` → system `tesseract` 5.5.2, `eng.traineddata` local — **no model
+  download**, EasyOCR/RapidOCR explicitly not used; D-15 honored). Page boundaries preserved, per-page
+  `ocr_failed` fail-loud flag (don't index garbage, §8). Proven on ≥5 synthetic 300-DPI image-only PDFs
+  (git-ignored): all present-fact spans recovered at token-coverage 1.00 on their own page; zero network
+  egress; live `.lancedb` + M2-8 artifacts untouched. **Scope boundary: SC-2 is met only at the
+  extraction layer — OCR text is NOT yet chunked/embedded/retrievable**; true end-to-end "searchable"
+  (SC-2) requires wiring OCR into ingest→index, sequenced with **G-SC1**. Validated on clean synthetic
+  rasters, **not real scans** (re-validate at M6); two real-PDF routing edge cases logged (`TASKS_M2.md`
+  Risks). **Does not move the CE_PLAN M2 acceptance gate** — that needs SC-1 + SC-2-integrated + the M3
+  items. (CE_PLAN §2 SC-2, §8 step 3; D-15, D-45)
+
+- **D-47 — M2/M3 gap-closure batch outcome: reds green, latency the lone honest yellow (2026-06-20,
+  Tester-confirmed + Planner-verified).** All seven plan tasks
+  (`docs/superpowers/plans/2026-06-20-m2m3-gap-closure.md`) landed as 7 per-task commits
+  (`89c7c66`→`c2cc89f`); Planner verified the code/tests exist, the baseline `.lancedb` + M2-8 artifacts
+  are byte-identical (untouched), and the new stores `.lancedb_full`/`.lancedb_hyb` are git-ignored (D-28
+  holds). **Independently-verified SC scorecard:**
+  - **SC-1** (20–50 doc multi-format, per-file report, idempotent) — 🟢 22 docs/4 types, idempotent,
+    quarantine + `.error.txt`.
+  - **SC-2** (OCR scanned → searchable e2e + robust) — 🟢 **at capability level**: an OCR'd page is
+    span-verified-answerable; degraded/mixed/sparse routing all pass. **Real-scan final validation stays
+    M6** (OCR conf 93–95% even on degraded synthetic renders; synthetic rasters ≠ real scans).
+  - **§8 quarantine + logs** — 🟢 (`ocr_failed`→`needs_review`).
+  - **M3 hybrid dense+BM25** — 🟢 implemented (native LanceDB FTS + RRF behind the matter pre-filter),
+    **measured lift NEGATIVE at this 6-matter scale (−4 rank@1) → correctly default-off** (D-36 mirror;
+    re-evaluate at production corpus scale).
+  - **M3 `<3s` first-token latency** — 🟡 **NOT MET**: instrumented, independent median **~3.6s**
+    (Builder 3.09s; either way a miss). `answer()` parity preserved. **Honest yellow** — the "production
+    hardware fixes it" read (qwen3 prefill/thinking-bound on the M4 Pro) is a **hypothesis to validate on
+    D-22 hardware**, not proven; the pilot-hardware target is unmet.
+  - **SC-3/4/5** — 🟢 (M2-8 stands 62/63, 0 fabrications; G-SC5 viewer). **SC-6** — 🟢 (0 non-loopback
+    across all task monitors). **SC-7** — 🟢 (live down→up→/answer→restore→down, compose-only, loopback).
+  - **Plan deviation (accepted):** `tantivy` was **not** installed — LanceDB **native FTS** was used
+    instead (fewer deps, same capability). Net new installs this batch: `python-docx`, `Pillow`(if
+    missing). Pins unchanged (D-11).
+  - **Process flags:** (a) the t2–t7 egress logs were first **committed empty**, then remediated with
+    real samples — **going forward every network-bearing run must write real monitor samples** (carry-
+    forward); (b) the earlier-milestone code (M2-7 `api.py`, M2-9 `Dockerfile`/`compose`, the SC-5 UI)
+    is **uncommitted** in the working tree — a git-hygiene loose end to land.
+  - **Precise gate reading:** the CE_PLAN §2 **"GO for attorney demo" gate is worded on SC-1…SC-7**, and
+    those are all 🟢 → the demo-GO gate is met. The **`<3s` first-token figure is a §2 quantitative /
+    §14-M3-acceptance target that is OPEN** — so M3 acceptance is not 100% complete; do not relabel
+    M2/M3 "complete." Unlocks only the **owner** decision on CE_PLAN **Milestone 4** (attorney UAT). Does
+    NOT authorize M4-5 hardware purchase (no purchase on spec, D-21/D-22) or M6 real data (written
+    approval). (CE_PLAN §2, §14 M2/M3; D-15, D-36, D-40, D-41, D-43, D-45, D-46)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal

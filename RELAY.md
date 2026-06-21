@@ -65,7 +65,16 @@ Tester prompt; Tester reports results back to the Planner).
 
 ## Where we are (update this line each milestone beat)
 
-**M2-8 = CONDITIONAL PASS** (page+span capability proven; 0 displayed fabrications; NF 9/9; DRM 2/2;
-93.7%→≥96.8% after the normalization fix). **Next task = M2-8a** (verifier `html.unescape` +
-backslash-strip + F-042 alternate-page → FINAL PASS ≥95%), then **M2-7** (FastAPI loopback surface),
-then the M2 milestone wraps.
+**🎉 MILESTONE 2-3 COMPLETE (D-44, 2026-06-20).** M2-8 = FINAL PASS (D-40: page+span 62/63 = 98.4%, 0
+displayed fabrications, NF 9/9, DRM 2/2), M2-7 done (D-41: loopback FastAPI surface), M2-9 done (D-43:
+single-service Compose, Ollama on host via `host.docker.internal`, published `127.0.0.1:8000` only,
+0 non-loopback egress — **COMPOSE-ONLY** loopback boundary, never `docker run -p`). The custom pipeline
+delivers the verifiable page+span citation the turnkey stack proved impossible. **A CE_PLAN
+cross-reference (D-45) reframed D-44 as capability-level** and opened the **M2/M3 acceptance-gap
+closeout** (plan: `docs/superpowers/plans/2026-06-20-m2m3-gap-closure.md`), **now DONE** via a 7-task
+batch (D-47, Tester-confirmed + Planner-verified, commits `89c7c66`→`c2cc89f`; baseline untouched).
+**SC scorecard:** SC-1/SC-2(capability)/§8/hybrid(off)/SC-7/SC-3-6 all 🟢; **lone yellow = `<3s`
+first-token (~3.6s, NOT met)** — a §2/M3 quantitative target, hardware-hypothesis for D-22. SC-1…SC-7
+demo-GO gate met; do NOT relabel M2/M3 "complete" (latency open). **Next = OWNER decision on CE_PLAN
+M4 (attorney UAT)**; loose ends: commit prior-milestone code, validate latency on real hardware. Still
+owner-gated: M4-5 hardware (no purchase on spec), M6 real data (written approval).

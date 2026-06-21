@@ -66,7 +66,18 @@
       with an offset reason (not silently dropped); reflow spans still verify; verifier imports no
       network module; loopback-only. **Verifiable PAGE+SPAN citation — the M1-impossible capability —
       works in code.**_
-- [ ] **M2-7 — FastAPI HTTP surface** (D-13), loopback-only.
+- [x] **M2-7 — FastAPI HTTP surface** (D-13, D-41), loopback-only. _Done 2026-06-20, independently
+      Tester-confirmed (live uvicorn + curl over HTTP, not TestClient/cache). Thin app (`pipeline/api.py`)
+      over the existing `answer()`: **`POST /answer`** (`{question, matter|null}` → answer +
+      **chunk-derived, span-verified** citations + `rejected_claims`; `matter` validated against the
+      D-35 allowlist — injection-shaped value → 400, raw text never interpolated) + **`GET /health`**.
+      **HTTP body byte-identical to a direct `answer()` call** (pure pass-through, no model-asserted page
+      reintroduced) for F-004 (present → `nimbus_pemberton_msa.pdf` p2, span-verified, `rejected_claims`
+      []) and NF-001 (exact D-30 refusal, citations []). **Bind `127.0.0.1:8000` only** (`lsof`: one IPv4
+      LISTEN, no `0.0.0.0`/IPv6); **no auth** (D-41); **no action route** (only GET/POST above + read-only
+      `/openapi.json`; PUT/DELETE/PATCH → 405); **no egress** beyond the loopback Ollama call — continuous
+      `lsof` monitor over live requests → git-ignored `eval/results/egress-2026-06-20-m2-7.log`, **0
+      non-loopback**; clean shutdown (port released). Install: FastAPI + uvicorn, pinned. (D-2/D-4/D-25)._
 - [x] **M2-8 — Full-72 page+span golden re-run (the headline M2 proof, D-39).** _Done 2026-06-20 =
       **CONDITIONAL PASS** (capability proven; 3/4 gates clean). Egress-monitored (D-31); raw →
       git-ignored `eval/results/run-2026-06-20-m2.jsonl`. **Displayed fabrications 0** (hard-zero holds —
@@ -74,19 +85,79 @@
       cross-matter, both verified). **Page+span 93.7% strict** (under the ≥95% gate) solely from
       **verifier false-rejects of truthful, correctly-grounded answers** whose spans use escapes the
       normalization didn't cover: **F-014** backslash `\"…\"`, **F-016** HTML entity `&quot;…&quot;`.
-      Both flip to PASS under `html.unescape` + backslash-strip → **≥96.8%**. FINAL PASS pending M2-8a._
-- [ ] **M2-8a — Normalization fix + targeted re-run → FINAL PASS.** Extend the M2-6 verifier
-      normalization to **decode HTML entities (`html.unescape`) + strip backslash-escaped quotes** (on
-      top of collapse-ws / `-\n`→`-`) — confirmed to resolve F-014 (`\"`) and F-016 (`&quot;`). Apply the
-      Reviewer's **F-042 alternate-page** scoring clarification into TEST_PLAN §6. Then a **targeted
-      re-run** of the affected facts (F-014, F-016, F-042 + any other entity/backslash false-rejects
-      across the 72) to flip CONDITIONAL → **FINAL PASS ≥95%**. The verifier must still **fail
-      conservatively** (never false-accept a fabrication). **⛔ F-026 is a GENUINE miss — EXCLUDE it
-      from the fix:** retrieval surfaced only the page-3 counsel occurrence (not the page-1 caption) →
-      the model **falsely refused a present fact** (a recall gap, not a verifier issue). Do **NOT**
-      weaken the verifier or force-pass it. Expected FINAL ≈ **62/63 (≥95%)** with F-026 the lone real
-      miss; revisit F-026 later (top_k / reranker / chunking — see Risks). **[NEXT]**
-- [ ] **M2-9 — Docker Compose deployment** (D-20) — later.
+      Both flip to PASS under `html.unescape` + backslash-strip → **≥96.8%**. **→ FINAL PASS at M2-8a
+      (D-40): 62/63 = 98.4%.**_
+- [x] **M2-8a — Normalization fix + targeted re-run → FINAL PASS.** _Done 2026-06-20 = **FINAL PASS**
+      (D-40), independently Tester-confirmed. Verifier normalization extended to **`html.unescape` +
+      strip backslash-escaped quotes**, applied **symmetrically** to span + chunk text (test-first);
+      F-042 **alternate-page** rule (§6.5) encoded in the verification path. Targeted re-run flipped
+      exactly **F-014** (`\"`) and **F-016** (`&quot;`) → verified (both chunk-derived **page 1**),
+      **zero** other changes (no regressions / no spurious verifications). Conservative-failure
+      invariant HELD (self-authored escaped-but-false span still → `rejected_claim`, no false-accept).
+      **Final: page+span 62/63 = 98.4% (≥95%), 0 displayed fabrications, NF 9/9, DRM 2/2.** **F-026 the
+      lone genuine miss — NOT force-passed** (recall gap, tracked in Risks). Loopback-only re-verified
+      (`eval/results/egress-2026-06-20-m2a.log`, 0 non-loopback, SC-6/D-31). Raw re-run →
+      git-ignored `eval/results/run-2026-06-20-m2-rerun.jsonl`._
+- [x] **M2-9 — Docker Compose deployment** (D-20, **D-43**). _Done 2026-06-20, independently
+      Tester-confirmed + Planner-verified against `Dockerfile`/`docker-compose.yml`. Single-service
+      Compose (FastAPI pipeline); **no Qdrant** (D-34), **no LlamaIndex** (D-37), **no UI**, reranker OFF.
+      **Ollama on host** reached via `LDI_OLLAMA_URL=http://host.docker.internal:11434` +
+      `host.docker.internal:host-gateway` — host bind unchanged, `OLLAMA_HOST` unset. Published
+      **`127.0.0.1:8000:8000` only** (never `0.0.0.0`, D-4); LanceDB **volume-mounted read-only** (never
+      baked, D-28); image COPYs `pipeline/*.py` + serve-only deps (no doc bodies / `.env` / `.lancedb`).
+      Live: `/health` + `/answer` (F-004) over loopback **parity** with `answer()`; egress-monitored
+      (D-31) **0 non-loopback** (`eval/results/egress-2026-06-20-m2-9.log`, git-ignored); clean
+      teardown. **⚠ Binding constraint (D-43a): COMPOSE-ONLY** — the container CMD binds `0.0.0.0`
+      in-namespace, so a bare `docker run -p 8000:8000` would expose off-host (hard rule #4); deploy via
+      `docker compose` only._
+      **🎉 Milestone 2-3 COMPLETE (D-44).**
+
+## M2/M3 acceptance-gap closeout (CE_PLAN cross-reference, 2026-06-20, D-45)
+
+> The M2-1..M2-9 checklist above proved the citation-grade **capability** (page+span eval). A
+> cross-reference against **CE_PLAN §2 SC-1..SC-7** + **§14 M2/M3 acceptance** found these acceptance
+> items still **open** — the honest remaining work before a *formal* CE_PLAN Milestone-4 attorney demo
+> (which requires SC-1..SC-7 all green). Each is small, tested, owner-gated, same discipline.
+>
+> **▶ Full sequenced plan: `docs/superpowers/plans/2026-06-20-m2m3-gap-closure.md`** (7 Builder tasks,
+> one per relay turn, each mapped to a CE_PLAN SC). The G-items below are the high-level gaps; the plan
+> decomposes them and adds an **OCR-robustness** task (degraded synthetic scans + the two routing-edge
+> fixes) to harden SC-2 short of real data (real-scan validation stays M6).
+
+- [x] **G-SC5 — Demo source-viewer UI (SC-5).** _Done 2026-06-20 (D-45). Read-only `GET /` +
+      `/matters` + path-locked `/source/{file}` on the existing loopback FastAPI app; a citation opens
+      the original PDF at the cited page (`#page=N`). No new deps; `/answer` untouched (parity holds);
+      traversal rejected (TDD); loopback-only; synthetic only. Closes the one M3 item that needed a UI._
+- [x] **G-SC2 — OCR / scanned PDFs (SC-2 at extraction level, D-15, §8 step 3).** _Done 2026-06-20,
+      Tester-confirmed. `extract_pages_ocr` per-page routes PyMuPDF text-layer pages vs. Tesseract
+      (`pytesseract==0.3.13` → system `tesseract` 5.5.2, `eng.traineddata` local, **no model fetch**;
+      EasyOCR/RapidOCR absent). ≥5 synthetic 300-DPI image-only PDFs under git-ignored
+      `documents/synthetic_corpus/scanned/`; all present-fact spans recovered at token-coverage 1.00 on
+      their **own** page (page-uniqueness holds), confidence 93–95, `ocr_failed` fail-loud flag present.
+      Born-digital path **byte-identical** (OCR not invoked); **zero network egress** (socket-guard);
+      live `.lancedb` + M2-8 eval artifacts **untouched** (not re-embedded / not re-run). **⚠ SC-2 closed
+      only at the EXTRACTION layer — OCR text is NOT yet chunked/embedded/retrievable** (end-to-end
+      "searchable" requires wiring OCR into ingest→index; folded into G-SC1). Validated on **clean
+      synthetic rasters, not real scans** (re-validate at M6)._
+_Closed via the 7-task gap-closure batch (D-47, Tester-confirmed + Planner-verified, commits
+`89c7c66`→`c2cc89f`; baseline `.lancedb`/M2-8 untouched; new stores `.lancedb_full`/`.lancedb_hyb`
+git-ignored):_
+- [x] **G-SC1 — 20–50 doc multi-format corpus + SC-2 integration (SC-1).** _🟢 22 docs / 4 types /
+      pdf+docx+txt(+md); per-file pass/fail report; idempotent (checksum); quarantine + `.error.txt`.
+      OCR pages wired into chunk→embed→index in `.lancedb_full` — an OCR'd page (velez scan) is
+      span-verified-answerable (SC-2 e2e). `python-docx` installed._
+- [x] **G-OCR-ROBUST — OCR robustness (SC-2 hardening).** _🟢 degraded synthetic scans (skew/noise/
+      150-DPI/JPEG) recover above the confidence floor; heavy-degrade → `ocr_failed`; sparse-digital page
+      stays PyMuPDF; mixed text+image page → `source=="mixed"`, embedded text recovered. **Real-scan
+      final validation = M6** (synthetic rasters ≠ real scans)._
+- [x] **G-HYB — Hybrid dense+BM25 retrieval (M3).** _🟢 implemented via LanceDB **native FTS** + RRF
+      behind the matter pre-filter (`tantivy` not needed — deviation accepted). **Lift NEGATIVE at
+      6-matter scale (−4 rank@1) → default-off** (D-36 mirror); re-evaluate at production scale._
+- [~] **G-LAT — `<3s` first-token latency.** _🟡 **instrumented but target NOT met** — independent median
+      **~3.6s**; `answer()` parity preserved. Honest yellow; the "production hardware fixes it" read is a
+      **hypothesis to validate on D-22 hardware**, not proven. Carry to the pre-M4 latency decision._
+- [x] **G-SC7 — Redeploy-from-scripts proof (SC-7).** _🟢 `deploy/up|down|restore.sh` + README; live
+      down→up→/answer→restore→down, compose-only, loopback-only, 0 egress, host Ollama bind unchanged._
 
 ## Constraints (carry-forward from M1)
 
@@ -109,3 +180,42 @@
   caption) was **falsely refused** because retrieval surfaced only its page-3 occurrence. **Not** a
   safety issue (no hallucination) and **not** a verifier bug — a **recall** gap. Revisit via `top_k` /
   reranker / chunking tuning; tracked, not an M2-8a blocker. Do not force-pass it.
+- **🟡 `answering._norm` ≠ verifier normalization contract (M2-8a Tester finding).** M2-8a aligned the
+  **verifier** (`verify_answer` / `_norm_map`) to the `html.unescape` + backslash-strip contract, but
+  `answering._extract_and_resolve`'s local `_norm` does **not** yet decode entities / strip backslash
+  escapes. Didn't bite in M2-8 (qwen3 emitted a `chunk:` tag → resolved by id), but a tag-less escaped
+  span from a looser future output could **false-reject**. **Precision only — never a false-accept.**
+  Consider aligning `answering._norm` with the verifier's normalization contract when a future task
+  touches that path. (M2-7 left the answering path untouched — deferred, still open.)
+- **🟢 Optional API hardening (M2-7 Tester note (c)).** `docs_url`/`redoc_url` are already `None`, but
+  `openapi_url` is default so `GET /openapi.json` serves the schema (no document data; loopback
+  single-tenant → low risk). Consider `openapi_url=None` as defense-in-depth if/when the API path is
+  revisited. Not a blocker.
+- **🟠 Compose-only deploy boundary (M2-9 / D-43a).** The image is loopback-safe **only** via
+  `docker compose` (publishes `127.0.0.1:8000:8000`); a bare `docker run -p 8000:8000` would publish to
+  `0.0.0.0` and expose the service off-host (**hard rule #4**). Mitigation today = documentation +
+  compose discipline (a clean in-container guard isn't feasible). Optional follow-up: a short deploy
+  `README`/warning making compose-only explicit. **Never `docker run -p` this image.**
+- **🟢 Image leanness (M2-9 Tester note (d)).** The image COPYs all `pipeline/*.py` (incl.
+  ingestion/run-harness **source** — code only, no data) though only the serving modules run. Optional:
+  COPY only the serving modules. Cosmetic; not a blocker.
+- **🟡 Linux/CUDA portability (M2-9 / D-43b).** `host.docker.internal:host-gateway` is a Docker-Desktop
+  convenience; a native-Linux deploy must **re-prove** container→host-Ollama reachability **and** egress
+  (D-31) before use. Relevant only if a future M4-5 hardware path (D-22) is Linux/CUDA rather than the
+  recommended Mac Studio.
+- **🟢 OCR: synthetic-raster ≠ real-scan (G-SC2 Tester note).** OCR validated on clean 300-DPI synthetic
+  renders (no skew/noise, 93–95% conf), **not real scans** — re-validate accuracy on real scanned docs
+  at **M6** (owner-gated, written approval).
+- **🟢 OCR routing edge cases — FIXED (G-OCR-ROBUST, D-47).** The `_MIN_TEXT_LAYER_CHARS` sparse-page
+  misroute and the mixed text+image page are now handled (sparse-digital stays PyMuPDF; mixed →
+  `source=="mixed"` with embedded text OCR'd). Real-scan validation still M6.
+- **🟠 `<3s` first-token latency NOT met (G-LAT, D-47).** Independent median ~3.6s on the M4 Pro;
+  instrumented honestly. Likely a production-hardware (D-22) / model-choice lever, but that is a
+  **hypothesis** — validate on real hardware before claiming it. Lone open §2/M3 quantitative target.
+- **🟡 Egress-log discipline (process, G-LAT/D-47).** The t2–t7 egress logs were first committed **empty**
+  then remediated. **Every network-bearing run must write real `lsof`/`nettop` samples**, not a header —
+  a header is not proof. Verify log line-counts when recording any future run.
+- **🟡 Uncommitted prior-milestone code (git hygiene).** M2-7 (`api.py`), M2-9 (`Dockerfile`/
+  `docker-compose.yml`), and the SC-5 UI (`static/`, `test_api_ui.py`) are **untracked** in the working
+  tree (the gap-closure batch committed on top of them). Land them in a commit so history is coherent and
+  the deploy task's dependencies are tracked.

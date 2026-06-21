@@ -7,10 +7,60 @@ canonical files it lists: `CLAUDE.md`, `RUN_STATE.md` (source of truth + "Next t
 
 ## 1. Current task
 
-**M2-8 is COMPLETE — recorded as a CONDITIONAL PASS.** The Builder ran all 72 golden questions
-through the M2 pipeline (`retrieve → answer → verify_answer`, `rerank=False`) under a continuous
-egress monitor and graded manually at the page+span bar (TEST_PLAN §6 / D-39). No task is mid-edit;
-the Builder is **idle at a clean between-task boundary**, awaiting the relay.
+**SAM-STYLE LOCAL UI BATCH (Tasks 1-7) COMPLETE — 7 commits 77a3b88..0e7abdb, full suite 134/134.**
+T1 app shell + 5-item left nav, local-only assets (no CDN, asserted). T2 SQLite matters catalog +
+/matters (eval allowlist moved to /eval/matters). T3 Document Hub: raw-body upload (no python-multipart
+dep), async ingest into dedicated .lancedb_kb, status table, delete STRUCTURALLY locked to documents/kb/
+(security-tested). T4 matter-scoped cited chat over .lancedb_kb + persisted threads (D-30 refusal on
+empty matter; no cross-matter leak). T5 PyMuPDF page thumbnails + cited-span highlight (read-only, never
+mutates the file). T6 local JS markdown formatter + inline source chips + Sources (escape-first XSS).
+T7 read-only Settings + "100% local · 0 outbound" badge (posture derived, not hardcoded). App left
+RUNNING on http://127.0.0.1:8000/app; browser smoke screenshotted (cited answer + yellow-highlighted
+cited span + badge). **Eval stores + M2-8 SHA-VERIFIED UNCHANGED**; KB store/catalog/bodies git-ignored;
+**0 non-loopback egress** (real samples in egress-2026-06-20-ui3/ui4/ui-smoke.log). **Zero installs.**
+Awaiting Reviewer. _(Prior batch M2/M3 gap-closure below.)_
+
+**M2/M3 GAP-CLOSURE BATCH (Tasks 1-7) COMPLETE — 7 commits 89c7c66..c2cc89f, full suite 99/99.**
+T1 multi-format ingest orchestrator (extractors.py + ingest_pipeline.py: DOCX/TXT, SHA-256 idempotent,
+per-file JSONL report, quarantine, ocr_failed→needs_review). T2 21-doc corpus (6 pdf/6 scan/4 docx/5
+txt-md, 4 types; sidecar eval/corpus_manifest.jsonl). T3 OCR→chunk→embed end-to-end into SEPARATE
+.lancedb_full (scan-only velez doc answerable w/ span-verified citation). T4 degraded-scan robustness +
+sparse/mixed-page routing fixes + confidence floor (make_scans.py). T5 opt-in hybrid dense+BM25 (native
+FTS; **tantivy upstream-removed/unbuildable on py3.14 — no tantivy installed**; lift neutral-negative,
+defaults off, eval/HYBRID_LIFT.md). T6 TTFT instrumentation (mean 2.77/median 3.09/p95 4.35s, <3s NOT
+met, eval/LATENCY.md; answer() unchanged). T7 deploy/ scripts + restore drill (compose-only loopback,
+live drill clean). **Live .lancedb + M2-8 artifacts SHA-VERIFIED UNCHANGED** (2766cd21…09509afe). All
+new stores in .lancedb_full/.lancedb_hyb (git-ignored). **Zero non-loopback egress** across all runs
+(egress-2026-06-20-t2…t7.log). **Zero net-new installs** (docx 1.2.0 + Pillow 12.2.0 already present).
+Awaiting Reviewer. _(Prior beat G-SC2 below.)_
+
+**G-SC2 is COMPLETE (per-page OCR routing for scanned PDFs — SC-2 acceptance gap closed).** The Builder
+added local-Tesseract OCR routing to ingestion: born-digital pages keep the fast PyMuPDF path (output
+byte-identical); image-only pages route through Tesseract on their correct page; empty/low-confidence
+OCR is flagged `ocr_failed` (fail-loud), never indexed as authoritative. Owner-approved install (D-15):
+`brew install tesseract` (**5.5.2**, eng traineddata, no model fetch) + `pytesseract==0.3.13` (Pillow
+already present). Built a git-ignored synthetic scanned corpus (6 image-only PDFs, 0 text-layer chars).
+Verification: all 6 route to Tesseract (mean conf ~93-95), **54/63 = 85.7%** known spans recovered on
+their correct page (every doc ≥5), 0 failed pages; born-digital fast path unchanged; fail-loud on
+blank pages; **zero network egress** (socket-guard). Tests 9/9; ingestion+chunking regression OK. **No
+re-embed of the live store / no eval re-run** (M2-8 FINAL PASS intact). Builder **idle at a clean
+between-task boundary**, awaiting the Reviewer hand-off. _(Prior beat below: M2-9 Docker Compose.)_
+
+**M2-9 is COMPLETE (Docker Compose deploy of the FastAPI service); M2-7 done, M2-8 FINAL PASS (D-40).**
+The Builder containerized the existing FastAPI pipeline as ONE service. **No new install** — Docker
+Desktop was already present (docker 29.2.0, compose v5.0.2, linux/aarch64); daemon started. **Hard-rule
+reachability gate PASSED**: a container reaches host Ollama via `host.docker.internal:11434` while
+Ollama stays bound to host `127.0.0.1` (probe returned `{"version":"0.30.10"}`) — **no rebind, no
+OLLAMA_HOST, no 0.0.0.0**. App made Ollama-URL env-configurable (`LDI_OLLAMA_URL`, default
+`127.0.0.1:11434`; container sets `host.docker.internal`) via one resolver `embed_store.ollama_url()`
+used by both `_chat` + `embed_texts`. Lean image (python:3.12-slim pinned by digest; serving deps only
+— fastapi/uvicorn/lancedb, **no docling/pymupdf/Torch**; reranker OFF+lazy). Compose publishes
+**`127.0.0.1:8000:8000` only**, mounts the LanceDB store **read-only** (D-28: never baked in),
+extra_hosts host-gateway. Monitored smoke: `/health` + `/answer` (F-004) over loopback **byte-identical
+parity with host `answer()`** (answer_text + chunk-derived p2 citation + empty rejected_claims), **0
+non-loopback egress**, image fs carries **no docs/store/secrets**, host Ollama bind unchanged, clean
+`compose down`. No task is mid-edit; Builder **idle at a clean between-task boundary**, awaiting the
+Reviewer hand-off. _(Prior beats: M2-7 loopback API; M2-8a fix → M2-8 FINAL PASS 62/63, D-40.)_
 
 **Next task = M2-8a (queued, NOT started):** a small verifier-normalization fix to convert the
 conditional pass into a FINAL page+span PASS (≥95%):
@@ -50,10 +100,37 @@ Recorded in `DECISIONS.md`; the M2 build/scoring calls, summarized:
 
 ## 3. In-flight work
 
-**None half-finished.** Confirmed at this regen: `pipeline/verifier.py` has **no** `html.unescape`
-(M2-8a not started); the deterministic verifier + chunk-derived tests pass (6/6, no LLM); the full
-suite was 37/37 at M2-6. The M2-8 run + grading artifacts are written. The only open items are relay
-hand-offs (Reviewer audit of the M2-8 grading → Tester repro → Planner records final), not Builder code.
+**None half-finished. G-SC2 CODE COMPLETE (test-first), awaiting Reviewer→Tester→Planner.** Done this
+turn — `ingestion.py`: `extract_pages` UNCHANGED (born-digital, 3 keys); added `extract_pages_ocr`
+(per-page text-vs-image routing → born-digital=PyMuPDF byte-identical, image-only=local Tesseract on
+correct page; records carry `source`/`ocr_failed`/`ocr_confidence`/`flag_reason` on top of the core
+3 keys) + helpers `_ocr_page` (single-pass image_to_data → text+confidence) + `_ocr_verdict` (fail-loud:
+empty or conf<50 → flagged, page_text blanked). New `build_scanned_corpus.py` (`rasterize_to_image_pdf`
+→ git-ignored `documents/synthetic_corpus/scanned/`, 6 image-only PDFs built). New
+`tests/test_ocr_ingestion.py` (9 tests, RED→GREEN): OCR recovers ≥5 known spans, page-boundary integrity
+(unique p1 span on p1, not elsewhere), born-digital unchanged, fail-loud (verdict unit + blank-page
+integration), zero-egress socket-guard. `requirements.txt` records `pytesseract==0.3.13` (system
+tesseract 5.5.2 via brew). Regression: test_ingestion + test_chunking OK. **Did NOT**: re-embed
+`pipeline/.lancedb` or re-run the 72 (M2-8 FINAL PASS intact), touch answering/verifier/UI/model pins,
+build G-SC1 breadth, or use cloud/model-fetch OCR. _(Prior beat M2-9, below — new (all committable, no
+data): `Dockerfile` (repo root; python:3.12-slim pinned by digest
+`sha256:76d4b7b6…dba74bf`; installs `requirements-serve.txt`; copies `pipeline/*.py`; CMD uvicorn
+`--host 0.0.0.0` INSIDE the container only), `docker-compose.yml` (one service, `ports:
+["127.0.0.1:8000:8000"]`, `LDI_OLLAMA_URL=http://host.docker.internal:11434`, `extra_hosts host-
+gateway`, LanceDB store mounted `:ro`), `.dockerignore` (excludes documents/, pipeline/.lancedb/,
+.env*, eval/results/, .venv/, __pycache__, .git, tests/), `pipeline/requirements-serve.txt`
+(fastapi/uvicorn/lancedb only). Modified: `embed_store.py` (+`ollama_url()` resolver, `embed_texts`
+host default→resolver) + `answering.py` (`_chat` host default→resolver, `from embed_store import
+ollama_url`) — env-configurable Ollama URL, default unchanged. New test `tests/test_ollama_url.py`
+(5 tests, RED→GREEN). **Regression 25/25** (test_ollama_url 5 + test_api 9 + test_verifier 11). Live:
+`docker compose build` (lean, ~8s, no Torch) → `up` → monitored smoke (`/health` + `/answer` F-004
+over 127.0.0.1:8000) → **byte-identical parity with host answer()** → `down` clean. Egress monitor →
+git-ignored `eval/results/egress-2026-06-20-m2-9.log` (0 non-loopback). Image-fs scan: no
+docs/.lancedb/.env/eval-results. `docker compose config` has no 0.0.0.0. Host Ollama bind unchanged,
+OLLAMA_HOST unset, before+after. **Did NOT**: containerize Ollama, change its bind, set OLLAMA_HOST,
+bind 0.0.0.0, add Qdrant/LlamaIndex/UI, enable reranker, re-run the 72, or install anything (Docker
+already present). **Carry-forward still open:** the M2-7-noted optional `answering._norm` html.unescape
+alignment (precision-only; needs a targeted re-run; not touched here).
 
 ## 4. Next 3 steps (immediately after resume)
 
