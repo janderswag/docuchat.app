@@ -296,15 +296,26 @@
   function renderChat() {
     var inner = document.querySelector("#view-chat .view-inner");
     inner.innerHTML =
+      "<div class='mark-bg' aria-hidden='true'>§</div>" +
+      "<p class='eyebrow'>Cited retrieval</p>" +
       "<h1>New Chat</h1>" +
-      "<div class='panel' style='display:flex;gap:8px;align-items:center'>" +
-      "<label class='muted'>Matter:</label>" +
-      "<select class='matter-picker' id='chat-matter' style='max-width:340px'></select>" +
-      "<button class='btn secondary' id='chat-new'>New chat</button></div>" +
+      "<p class='lede'>Select a matter and ask a question grounded in its documents. " +
+      "Every answer returns a verified citation to the exact page and span — or tells " +
+      "you it couldn't find one.</p>" +
+      "<div class='panel matter-card'>" +
+      "<span class='field-label'>Matter</span>" +
+      "<select class='matter-picker' id='chat-matter'></select>" +
+      "<button class='btn secondary' id='chat-new'>＋ New chat</button></div>" +
       "<div id='chat-messages' class='chat-messages'></div>" +
-      "<div class='panel chat-inputrow'><textarea id='chat-input' rows='2' " +
-      "placeholder='Ask a question grounded in this matter&#39;s documents…'></textarea>" +
-      "<button class='btn' id='chat-send'>Send</button></div>";
+      "<div class='panel ask-card'>" +
+      "<span class='field-label'>Question</span>" +
+      "<textarea id='chat-input' rows='3' placeholder='e.g. What are the indemnification " +
+      "obligations, and where are they stated?'></textarea>" +
+      "<div class='ask-foot'><span class='hint'>" +
+      "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.7'>" +
+      "<path d='M9 11l2 2 4-4'/><circle cx='12' cy='12' r='9'/></svg>" +
+      "Answers are span-verified before they're shown.</span>" +
+      "<button class='btn' id='chat-send'>Ask&nbsp;→</button></div></div>";
     fillMatterPickers().catch(function () {});
     document.getElementById("chat-matter").addEventListener("change", function (e) {
       var opt = e.target.selectedOptions[0];

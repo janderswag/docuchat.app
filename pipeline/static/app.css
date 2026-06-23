@@ -101,7 +101,22 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
 /* New Chat: vertically center the empty state; once a conversation grows past the
    viewport the auto margins collapse to 0 and it top-aligns + scrolls naturally. */
 #view-chat.view.active{display:flex;flex-direction:column;min-height:100%}
-#view-chat .view-inner{margin-block:auto}
+#view-chat .view-inner{margin-block:auto;position:relative}
+#view-chat .view-inner > *{position:relative;z-index:1}
+#view-chat .mark-bg{position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:0;
+  font-family:var(--serif);font-size:300px;line-height:1;color:rgba(180,138,74,.06);
+  pointer-events:none;user-select:none}
+#view-chat h1{font-size:34px;letter-spacing:-.4px;margin:0 0 8px}
+.eyebrow{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 10px}
+.lede{font-size:14.5px;color:var(--muted);line-height:1.6;margin:0 0 26px;max-width:54ch}
+.field-label{display:block;font-size:12px;font-weight:600;letter-spacing:.3px;color:var(--muted);text-transform:uppercase}
+.matter-card{display:flex;align-items:center;gap:14px}
+.matter-card .field-label{flex:0 0 auto}
+.matter-card .matter-picker{flex:1;width:auto;min-width:0}
+.ask-card .field-label{margin-bottom:10px}
+.ask-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.hint{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--faint)}
+.hint svg{width:14px;height:14px;flex:0 0 14px;stroke:currentColor;fill:none}
 .answer h2,.answer h3{font-family:var(--serif);font-weight:500;margin:.5em 0 .2em;font-size:17px}
 .answer ul,.answer ol{margin:.3em 0 .3em 1.2em}
 .sources{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:13px}
