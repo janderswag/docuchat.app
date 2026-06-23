@@ -16,8 +16,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Ar
 .brand{display:flex;align-items:center;gap:8px;padding:8px 8px 16px;font-weight:600}
 .brand-mark{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;
   background:var(--accent);color:#fff;font-weight:700}
-.brand-name{font-size:15px}
-.brand-badge{margin-left:auto;font-size:10px;color:#0b3;background:#06281a;border:1px solid #0a5;
+.brand-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.brand-name{font-size:14px;line-height:1.2;white-space:nowrap}
+.brand-badge{align-self:flex-start;font-size:10px;color:#0b3;background:#06281a;border:1px solid #0a5;
   padding:2px 7px;border-radius:999px;white-space:nowrap}
 #nav{display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .nav-item{display:flex;align-items:center;gap:10px;background:transparent;border:0;color:var(--side-text);
@@ -90,7 +91,7 @@ th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;le
 .clause-advisory{font-size:13px;margin:4px 0 0}
 .clause-foot{margin-top:16px;font-size:12px}
 
-/* Review Grid (document x clause matrix, sticky header + first column) */
+/* Compare Documents (document x clause matrix, sticky header + first column) */
 .grid-scroll{overflow:auto;max-height:72vh;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
 .grid-table{border-collapse:separate;border-spacing:0;font-size:13px;min-width:640px}
 .grid-table th,.grid-table td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:8px 10px;vertical-align:top}
