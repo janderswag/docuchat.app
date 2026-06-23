@@ -7,8 +7,9 @@
 [![Stack: FastAPI + Ollama + LanceDB](https://img.shields.io/badge/stack-FastAPI%20%C2%B7%20Ollama%20%C2%B7%20LanceDB-0a7e8c.svg)](#tech-stack)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-> `[ screenshot / demo GIF goes here ]`
-> _The matter-scoped chat with a highlighted, page-cited source span. Adding a real demo GIF here meaningfully increases stars — it's the single highest-leverage thing to add after launch._
+![Legal Document Chat — local, cited document chat for attorneys: a matter-scoped conversation with answers cited to the exact page and section](docs/demo.png)
+
+> _Matter-scoped chat with every answer cited to the exact page and section. Shown with synthetic documents — development uses synthetic/public data only._
 
 ## Why this exists
 
