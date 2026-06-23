@@ -1,4 +1,4 @@
-# Document Parsing & Chat with Open-Source Models for Attorneys
+# Legal Document Chat for Attorneys — Private, Self-Hosted, Cited
 
 **Parse and chat with sensitive legal documents — privately, on your own hardware, using local open-source LLMs, with every answer cited to the exact page and verified against the source.**
 
@@ -29,6 +29,19 @@ It is a **cited-retrieval assistant — not an AI lawyer and not an autonomous a
 - **Anyone who needs verifiable, local document chat** — the citation-verification core is domain-agnostic.
 
 Practicing attorneys: you're welcome too — open an issue describing a real workflow (see [CONTRIBUTING](CONTRIBUTING.md)).
+
+## How it compares to cloud AI chat
+
+How local, self-hosted legal document chat differs from sending documents to a cloud chatbot (ChatGPT, Claude, Gemini):
+
+| | **Legal Document Chat** (this project) | Cloud AI chat (ChatGPT / Claude / Gemini) |
+|---|---|---|
+| Where your documents go | Stay on your machine — loopback only (`127.0.0.1`) | Uploaded to a third-party cloud |
+| Models | Local, open-source via [Ollama](https://ollama.com) | Closed, vendor-hosted |
+| Citations | Mechanically verified to page + exact span | Often unverified or hallucinated |
+| Works offline / air-gapped | Yes (after a one-time model download) | No |
+| Cost | Free — no API keys, no per-token billing | Subscription or per-token |
+| Attorney–client privilege | Preserved — nothing leaves the machine | At risk — data leaves your control |
 
 ## Features
 
@@ -103,6 +116,29 @@ ingest → parse → chunk + embed → retrieve → answer → verify → cite
 - **Privacy posture:** development uses **synthetic / public documents only**; this is a deliberate boundary, not a limitation of the code.
 
 See [`DECISIONS.md`](DECISIONS.md) for the full architecture-decision record (why hand-rolled RAG, why LanceDB over a server, why mechanical citation verification, etc.).
+
+## FAQ
+
+**Is this a private, local legal document chat?**
+Yes. It's a self-hosted "chat with your legal documents" tool that runs entirely on your own hardware. Inference, embeddings, OCR, and storage are all local, and the service binds to loopback (`127.0.0.1`) only.
+
+**Does my data leave my computer?**
+No. The query path makes no cloud calls and requires no API keys. Your documents are never uploaded to OpenAI, Anthropic, Google, or any third party.
+
+**Does it work offline / air-gapped?**
+Yes. After a one-time local model download via [Ollama](https://ollama.com), it runs with no internet connection.
+
+**Can I chat with scanned PDFs?**
+Yes. Image-only pages are routed through local Tesseract OCR, while born-digital pages keep the fast text path. Tables are extracted as structured, citable content.
+
+**How is this different from using ChatGPT, Claude, or Gemini on legal documents?**
+Those send your documents to a third-party cloud — a non-starter for privileged, confidential material. This keeps everything local, uses open-source models, and mechanically verifies every citation to a real page and span. See [How it compares](#how-it-compares-to-cloud-ai-chat).
+
+**Is this an AI lawyer? Does it give legal advice?**
+No. It is a cited-retrieval assistant — it locates and summarizes what your documents say, with citations you verify. It gives no legal advice, draws no legal conclusions, and takes no actions.
+
+**What models and stack does it use?**
+Local open-source models via Ollama (`qwen3:14b` for chat, `bge-m3` for embeddings), with FastAPI, LanceDB for vector search, and PyMuPDF / Docling / Tesseract for parsing and OCR. See [Tech stack](#tech-stack).
 
 ## Contributing
 
