@@ -219,9 +219,15 @@ git-ignored):_
 
 ## Future / parked work (not scheduled — owner will trigger)
 
-- [ ] **▶ Desktop packaging v1 — landing page + in-app wizard + macOS launcher (ACTIVE, D-58).** Owner
-      greenlit 2026-06-29; scope locked in the spec's "v1 SCOPE LOCKED" section. Mac now (local-testable),
-      Windows after (owner's machine), frozen bundle + signing = Phase B. Approved install: `pywebview`.
+- [x] **Desktop packaging v1 — landing page + in-app wizard + macOS launcher (DONE, D-59, `c0400cb`).**
+      Tester GREEN; 257/257; footprint pywebview+pyobjc. One yellow → v1.1 (launcher hard-kill hardening).
+- [ ] **▶ Desktop v1.1 — landing tweaks + launcher hardening (ACTIVE, D-59).** Attach `docs/demo.png`;
+      non-clickable demo-video placeholder; broaden copy "solo attorneys" → any attorney office/practice;
+      launcher signal-handler/process-group cleanup. Then **Windows pass** (owner's machine).
+- [ ] **⏸️ Phase B + signing + Store/monetization (future).** Embed engine (no separate Ollama) + in-app
+      model download + PyInstaller frozen bundle → code-signing (~$220/yr) → Apple/Windows Store. **Pricing
+      idea banked** (10 free / $20 / $50/mo) — needs an enforcement-strategy brainstorm (OSS+local+MIT vs a
+      doc-count paywall is a real tension). See `DECISIONS.md` D-58.
 - [ ] **⏸️ Desktop app distribution — phased launcher → one-click app (DESIGN DONE, D-58).** Spec:
       `docs/superpowers/specs/2026-06-29-desktop-app-distribution.md`. Downloadable double-click app
       (macOS + Windows), **pywebview/tray-first, wrap-don't-rewrite** (keep the Python pipeline + verifier).

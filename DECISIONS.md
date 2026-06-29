@@ -535,6 +535,23 @@
   still downloads and runs. **Implementation is a separate packaging effort, owner-gated, not relay
   pipeline code.** (CLAUDE.md hard rules #3/#4; D-37, D-57)
 
+- **D-59 — Desktop packaging v1 COMPLETE, Tester GREEN + committed (2026-06-29).** All three v1 pieces
+  shipped + independently Tester-confirmed (commit `c0400cb`): (1) **macOS pywebview launcher**
+  (`desktop/launcher.py`) — frees port, binds `127.0.0.1` only, health-checks, opens a native window,
+  stops the child uvicorn on window-close (port freed, no orphan); (2) **in-app first-run wizard**
+  (`routes_setup.py` + `static/setup.*`) — detects Ollama reachability + the pinned models (exact/`:latest`/
+  base match; rejects `qwen3:13b` near-miss), shows install-Ollama + exact `ollama pull` steps when
+  missing, redirects to `/app` when ready; local-asset-only, only setup-time outbound ref is
+  ollama.com/download; (3) **landing page** (`site/`) — 3-download procedure, macOS CTA → Releases,
+  "Windows coming soon", "100% LOCAL · NO CLOUD · NO TELEMETRY", demo placeholder; Pages workflow is
+  **manual-deploy only** (no push trigger). **257/257**; eval baselines byte-identical; **install footprint
+  exactly `pywebview` 6.2.1 + pyobjc** (no PyInstaller/py2app/signing tooling, no Windows/non-loopback
+  artifacts). Pipeline + verifier untouched. **One yellow (non-blocking):** launcher orphans its child on
+  a *hard* kill (SIGTERM/SIGKILL) vs window-close — self-heals via `free_port()` next launch; hardening =
+  signal handler / process-group cleanup (carried to the v1.1 follow-up). Tester carry-forwards resolved:
+  A0 HF-offline ordering fixed; `scripts/baseline_hash.sh` already tracked; empty `documents/kb/tables-demo/`
+  removed. (D-58; CLAUDE.md hard rules #3/#4)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal

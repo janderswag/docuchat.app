@@ -203,7 +203,18 @@ concurrency; no leak; baselines byte-identical; 0 non-loopback. Closeouts applie
 air-gap fix (yellow closed, 20 table tests green). **F-026 fix PROVEN** (C1: top-k×N+rerank → None→rank3)
 but baseline-affecting → **owner decision to adopt** (not self-applied). `eyecite` held `[GATE]`.
 
-**▶ ACTIVE: Desktop packaging v1 (D-58 spec, owner-greenlit 2026-06-29).** Make the app downloadable +
+**✅ Desktop packaging v1 DONE (D-59, Tester GREEN + committed `c0400cb`, 2026-06-29):** macOS pywebview
+launcher + in-app first-run wizard + landing page; 257/257; baselines untouched; footprint pywebview+pyobjc.
+
+**▶ NEXT: Desktop v1.1 follow-up (Builder prompt emitted).** Landing-page tweaks (attach `docs/demo.png`;
+add a **non-clickable** demo-video placeholder; **broaden copy from "solo attorneys" → any attorney
+office/practice**) + launcher **hard-kill hardening** (signal handler / process-group so a killed launcher
+can't orphan the child). Then: **Windows pass** (owner's machine), then Phase B (embed engine + in-app
+model download + frozen bundle) + signing + Store/monetization. Banked: owner's freemium pricing idea
+(10 free / $20 / $50) — flagged for an enforcement-strategy brainstorm at the Store phase (OSS+local+MIT
+makes doc-count paywalls hard to enforce). Demo video = owner-produced.
+
+**(prior) ▶ Desktop packaging v1 (D-58 spec, owner-greenlit 2026-06-29).** Make the app downloadable +
 add an onboarding flow + a landing page. **v1 scope (locked):** (1) landing page (`site/`, frontend-design
 skill, GitHub Pages/Releases, local-testable); (2) **in-app first-run wizard** detecting Ollama + models
 and guiding setup; (3) **macOS pywebview/tray launcher** around the existing FastAPI. **Deferred:**
