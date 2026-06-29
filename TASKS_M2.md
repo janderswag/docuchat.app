@@ -219,6 +219,9 @@ git-ignored):_
 
 ## Future / parked work (not scheduled — owner will trigger)
 
+- [ ] **▶ Desktop packaging v1 — landing page + in-app wizard + macOS launcher (ACTIVE, D-58).** Owner
+      greenlit 2026-06-29; scope locked in the spec's "v1 SCOPE LOCKED" section. Mac now (local-testable),
+      Windows after (owner's machine), frozen bundle + signing = Phase B. Approved install: `pywebview`.
 - [ ] **⏸️ Desktop app distribution — phased launcher → one-click app (DESIGN DONE, D-58).** Spec:
       `docs/superpowers/specs/2026-06-29-desktop-app-distribution.md`. Downloadable double-click app
       (macOS + Windows), **pywebview/tray-first, wrap-don't-rewrite** (keep the Python pipeline + verifier).

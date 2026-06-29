@@ -203,6 +203,16 @@ concurrency; no leak; baselines byte-identical; 0 non-loopback. Closeouts applie
 air-gap fix (yellow closed, 20 table tests green). **F-026 fix PROVEN** (C1: top-k×N+rerank → None→rank3)
 but baseline-affecting → **owner decision to adopt** (not self-applied). `eyecite` held `[GATE]`.
 
+**▶ ACTIVE: Desktop packaging v1 (D-58 spec, owner-greenlit 2026-06-29).** Make the app downloadable +
+add an onboarding flow + a landing page. **v1 scope (locked):** (1) landing page (`site/`, frontend-design
+skill, GitHub Pages/Releases, local-testable); (2) **in-app first-run wizard** detecting Ollama + models
+and guiding setup; (3) **macOS pywebview/tray launcher** around the existing FastAPI. **Deferred:**
+PyInstaller-frozen bundle, **Windows (sequenced AFTER Mac — owner has a Windows machine to test on)**,
+signing/notarization (Phase B). **Approved install: `pywebview`** only; else `[GATE]`. Wrap-don't-rewrite
+(pipeline + verifier untouched); keep loopback-only + no telemetry at runtime. Builder prompt emitted;
+recommend the Builder `/clear` first (big fresh-domain task). Loop cadence to align with the owner's
+Obsidian flow. Spec: `docs/superpowers/specs/2026-06-29-desktop-app-distribution.md`.
+
 **🌐 PROJECT OPEN-SOURCED (D-57, 2026-06-22):** public repo **github.com/janderswag/legal-document-chat**
 (MIT). Pre-flight audit clean (no secrets/PII/real data in tree or history); `.gitignore` hardened; public
 README/CONTRIBUTING/LICENSE + 12 topics + 5 good-first-issues; relay/governance docs kept at root → **ongoing

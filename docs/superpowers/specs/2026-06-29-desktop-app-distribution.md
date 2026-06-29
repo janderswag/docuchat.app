@@ -86,3 +86,21 @@ installer.
 2. Decide signing + set up CI build matrix.
 3. **Phase B**: engine sidecar + in-app model download → PyInstaller backend sidecar → signed/notarized
    installers → website download page.
+
+## ▶ v1 SCOPE LOCKED (owner, 2026-06-29) — three locally-testable pieces, defer the rest
+Owner decisions: **onboarding + launcher first** (defer the heavy PyInstaller-frozen single-file bundle),
+**in-app first-run wizard**, **landing page in this repo → GitHub Pages + Releases**. v1 deliverables, all
+**testable on this Mac now**:
+1. **Landing page** (`site/`, static, built with the frontend-design skill) — explains the 3 downloads
+   (Ollama + models + the app), macOS download CTA + "Windows coming soon", privacy framing ("setup
+   downloads from the internet once; afterward your documents stay 100% local"), demo-GIF placeholder.
+   Runs locally for review; GitHub Pages/Releases hosting wired but deploy is later.
+2. **In-app first-run wizard** — on launch, detect Ollama (`127.0.0.1:11434`) + the pinned models
+   (`qwen3:14b`, `bge-m3`); if missing, guide the user through them; if present, drop into the app.
+   Reuses the existing web UI; keep loopback-only + no telemetry.
+3. **macOS launcher** (pywebview/tray) — starts the FastAPI server, health-checks, opens the UI in a
+   window, kills the server on quit (hold the child handle; pre-kill port 8000). Runnable locally now.
+**Deferred (explicitly):** PyInstaller-frozen self-contained bundle; **Windows build/test (sequenced
+AFTER Mac — owner has a Windows machine to test on; per-OS PyInstaller, no cross-compile)**; code-signing
++ notarization (Phase B). **Approved install for this task: `pywebview`** (+ minimal launcher deps);
+anything beyond that stays `[GATE]`.
