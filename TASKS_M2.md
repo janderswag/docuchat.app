@@ -221,9 +221,12 @@ git-ignored):_
 
 - [x] **Desktop packaging v1 — landing page + in-app wizard + macOS launcher (DONE, D-59, `c0400cb`).**
       Tester GREEN; 257/257; footprint pywebview+pyobjc. One yellow → v1.1 (launcher hard-kill hardening).
-- [ ] **▶ Desktop v1.1 — landing tweaks + launcher hardening (ACTIVE, D-59).** Attach `docs/demo.png`;
-      non-clickable demo-video placeholder; broaden copy "solo attorneys" → any attorney office/practice;
-      launcher signal-handler/process-group cleanup. Then **Windows pass** (owner's machine).
+- [ ] **▶ Desktop v1.1 — landing tweaks + launcher hardening + root-route fix (ACTIVE, D-59).** Attach
+      `docs/demo.png`; non-clickable demo-video placeholder; broaden copy "solo attorneys" → any attorney
+      office/practice; launcher signal-handler/process-group cleanup. **+ Root-route bug (Windows-found):**
+      `/` still serves the OLD demo page (`static/index.html`) while the real UI is `/app` — **redirect
+      `/` → `/setup`** (funnels bare URL + launcher through wizard→app) and retire the orphaned old page;
+      fix any tests that asserted old `/` behavior. Then **Windows pass** (owner's machine).
 - [ ] **⏸️ Phase B + signing + Store/monetization (future).** Embed engine (no separate Ollama) + in-app
       model download + PyInstaller frozen bundle → code-signing (~$220/yr) → Apple/Windows Store. **Pricing
       idea banked** (10 free / $20 / $50/mo) — needs an enforcement-strategy brainstorm (OSS+local+MIT vs a
