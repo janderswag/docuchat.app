@@ -82,35 +82,28 @@ h1 em{font-weight:500}
 .apple{width:20px;height:20px;fill:currentColor}
 .win{width:18px;height:18px;fill:currentColor}
 
-/* wax seal */
-.seal{position:absolute;top:48px;right:18px;width:148px;height:148px;animation:spin 60s linear infinite}
-.seal-svg{width:100%;height:100%;filter:drop-shadow(0 6px 12px rgba(94,31,27,.3))}
-.seal-edge{fill:var(--oxblood)}
-.seal-inner{fill:var(--oxblood-deep)}
-.seal-text{font-family:"IBM Plex Mono",monospace;font-size:7.1px;letter-spacing:.12em;fill:rgba(244,239,228,.85)}
-.seal-big{font-family:"Fraunces",serif;font-weight:600;font-size:26px;fill:var(--paper);text-anchor:middle}
-.seal-sub{font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.34em;fill:rgba(244,239,228,.9);text-anchor:middle}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.seal{animation:none}}
-
-/* demo screen */
+/* demo — real screenshot + a (non-clickable) "video coming soon" slot, side by side */
 .demo{margin-top:30px}
+.demo-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:22px;align-items:stretch}
 .screen{margin:0;border-radius:16px;overflow:hidden;border:1px solid var(--rule);
   background:#14130f;box-shadow:var(--shadow)}
 .screen-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:#1d1b16;border-bottom:1px solid #2a261d}
 .screen-bar span:not(.screen-host){width:11px;height:11px;border-radius:50%;background:#3a352a}
 .screen-bar span:nth-child(1){background:#c5564b}.screen-bar span:nth-child(2){background:#c79a3f}.screen-bar span:nth-child(3){background:#5b8c6e}
 .screen-host{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:12px;color:#7f7866;letter-spacing:.05em}
-.screen-body{padding:30px;background:radial-gradient(120% 120% at 70% 0%,#1b1a14,#100f0c)}
-.demo-chat{display:flex;flex-direction:column;gap:14px;max-width:620px}
-.bubble{padding:14px 18px;border-radius:14px;font-size:16.5px;line-height:1.55}
-.bubble.q{align-self:flex-end;background:#2c2920;color:#e9e2cf;border-bottom-right-radius:4px}
-.bubble.a{align-self:flex-start;background:#f7f2e6;color:#23211a;border-bottom-left-radius:4px}
-.bubble.a b{color:var(--oxblood)}
-.chip{display:inline-block;margin:10px 8px 0 0;font-family:"IBM Plex Mono",monospace;font-size:12px;
-  background:#ece3cf;color:#6c4a16;border:1px solid #dac9a4;border-radius:6px;padding:3px 8px}
-.verified{display:inline-block;margin-top:10px;font-size:13px;color:var(--local);font-style:italic}
-.demo-note{margin:22px 0 0;font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:#6f6857;letter-spacing:.03em}
+.screen-shot{display:block;width:100%;height:auto;background:#f4efe4}
+
+/* video slot — deliberately NOT a link and NOT clickable (owner embeds a real video later) */
+.vidslot{margin:0;border-radius:16px;border:1.5px dashed var(--rule);background:
+  repeating-linear-gradient(135deg,#efe8d9,#efe8d9 14px,#ece4d2 14px,#ece4d2 28px);
+  display:grid;place-items:center;min-height:240px;cursor:default}
+.vidslot-inner{pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.vidslot-play{display:grid;place-items:center;width:58px;height:58px;border-radius:50%;
+  background:var(--oxblood);color:var(--paper);font-size:20px;padding-left:4px;
+  box-shadow:0 10px 22px -12px rgba(94,31,27,.6)}
+.vidslot-title{font-family:"Fraunces",serif;font-size:19px;font-weight:600;color:var(--ink);margin-top:6px}
+.vidslot-sub{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--muted)}
 
 /* steps */
 .steps{padding:96px 28px 30px}
@@ -174,8 +167,9 @@ h1 em{font-weight:500}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
 
 @media (max-width:820px){
-  .seal{display:none}
   .trust-grid{grid-template-columns:1fr;gap:30px}
+  .demo-grid{grid-template-columns:1fr;gap:16px}
+  .vidslot{min-height:200px}
   h1{max-width:none}
   .topnav{display:none}
 }

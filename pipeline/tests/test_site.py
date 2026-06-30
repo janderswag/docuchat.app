@@ -37,9 +37,25 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("no telemetry", low)
         self.assertIn("downloads the models from the internet", low)
 
-    def test_demo_placeholder_present(self):
-        self.assertIn("demo-placeholder", self.html)
-        self.assertIn("Demo recording", self.html)
+    def test_real_demo_image_present(self):
+        self.assertIn('src="demo.png"', self.html)
+        self.assertTrue((SITE / "demo.png").is_file(), "site/demo.png missing (self-contained)")
+
+    def test_video_slot_present_and_not_clickable(self):
+        self.assertIn('id="demo-video-slot"', self.html)
+        self.assertIn("Coming soon", self.html)
+        # the slot must be a <figure>, never an <a>/link, and pointer-events disabled
+        slot = self.html[self.html.index('id="demo-video-slot"'):]
+        slot = slot[:slot.index("</figure>")]
+        self.assertNotIn("<a", slot, "video slot must not be a link/clickable")
+        self.assertNotIn("href", slot)
+        self.assertIn("EMBED GOES HERE", self.html)         # marked for the owner's video
+        self.assertIn("pointer-events:none", self.css)
+
+    def test_audience_copy_is_general_not_solo_exclusive(self):
+        low = self.html.lower()
+        self.assertNotIn("solo attorney", low)              # broadened
+        self.assertIn("attorneys", low)
 
     def test_pages_wiring_present(self):
         self.assertTrue((SITE / ".nojekyll").exists())

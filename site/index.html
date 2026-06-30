@@ -30,7 +30,7 @@
   <main id="top">
     <!-- HERO -->
     <section class="hero">
-      <p class="eyebrow reveal" style="--d:0ms">For solo attorneys &middot; runs on your own computer</p>
+      <p class="eyebrow reveal" style="--d:0ms">For attorneys &amp; law offices &middot; runs on your own computer</p>
       <h1 class="reveal" style="--d:80ms">
         Ask your documents.<br>
         Get answers <em>pinned to the&nbsp;page.</em>
@@ -47,37 +47,31 @@
         <span class="cta-aside">Apple&nbsp;silicon &amp; Intel &middot; <span class="soon">Windows — coming soon</span></span>
       </div>
       <p class="hero-fineprint reveal" style="--d:340ms">Free &amp; open. No account. No sign-up.</p>
-
-      <!-- the privacy wax-seal -->
-      <div class="seal reveal" style="--d:200ms" aria-label="100 percent local">
-        <svg viewBox="0 0 120 120" class="seal-svg" aria-hidden="true">
-          <defs><path id="ring" d="M60,60 m-44,0 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0"/></defs>
-          <circle cx="60" cy="60" r="56" class="seal-edge"/>
-          <circle cx="60" cy="60" r="44" class="seal-inner"/>
-          <text class="seal-text"><textPath href="#ring" startOffset="0">100% LOCAL &middot; NO CLOUD &middot; NO TELEMETRY &middot; </textPath></text>
-          <text x="60" y="55" class="seal-big">100%</text>
-          <text x="60" y="74" class="seal-sub">LOCAL</text>
-        </svg>
-      </div>
     </section>
 
     <!-- DEMO -->
-    <section class="demo reveal">
-      <figure class="screen">
-        <div class="screen-bar"><span></span><span></span><span></span>
-          <span class="screen-host">127.0.0.1:8000</span></div>
-        <div class="screen-body" id="demo-placeholder">
-          <div class="demo-chat">
-            <div class="bubble q">What is the indemnification cap in the Nimbus MSA?</div>
-            <div class="bubble a">
-              The Provider's aggregate liability is capped at <b>$568,200</b>, except for indemnification.
-              <a class="chip">nimbus_pemberton_msa.pdf · p.3</a>
-              <span class="verified">✓ verified against the source</span>
-            </div>
+    <section class="demo">
+      <div class="demo-grid">
+        <!-- Real product screenshot -->
+        <figure class="screen reveal">
+          <div class="screen-bar"><span></span><span></span><span></span></div>
+          <img class="screen-shot" src="demo.png" id="demo-shot" loading="lazy" width="2880" height="1800"
+               alt="Legal Document Chat: a cited answer about indemnification obligations and the liability cap, each fact pinned to the page and section of the source document.">
+        </figure>
+
+        <!-- Demo video slot — owner drops a real recording in here later.
+             NON-CLICKABLE placeholder (a <figure>, not a link, pointer-events disabled).
+             EMBED GOES HERE: replace the .vidslot-inner block below with
+             <video class="screen-shot" src="demo.mp4" controls poster="demo.png"></video>
+             (or an <iframe> embed). -->
+        <figure class="vidslot reveal" id="demo-video-slot" aria-label="Demo video coming soon">
+          <div class="vidslot-inner" aria-hidden="true">
+            <span class="vidslot-play">▶</span>
+            <span class="vidslot-title">Demo video</span>
+            <span class="vidslot-sub">Coming soon</span>
           </div>
-          <p class="demo-note">▶ Demo recording goes here — a real screen capture is the top follow-up.</p>
-        </div>
-      </figure>
+        </figure>
+      </div>
     </section>
 
     <!-- HOW IT WORKS — 3 downloads as a numbered legal procedure -->

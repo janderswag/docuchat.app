@@ -15,7 +15,7 @@
     items.forEach(function (el) { io.observe(el); });
     // hero items are above the fold — reveal immediately
     requestAnimationFrame(function () {
-      document.querySelectorAll(".hero .reveal, .seal.reveal").forEach(function (el) {
+      document.querySelectorAll(".hero .reveal").forEach(function (el) {
         el.classList.add("in");
       });
     });

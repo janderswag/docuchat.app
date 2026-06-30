@@ -7,13 +7,15 @@ citation verifier. It:
   3. health-checks 127.0.0.1:8000,
   4. opens the first-run wizard (/setup, which drops into /app when ready) in a pywebview
      window,
-  5. kills the child server on quit.
+  5. kills the child server on quit — whether the window is closed, the process exits
+     normally, OR the launcher is hard-killed via SIGTERM/SIGINT (no orphaned uvicorn).
 
 Loopback-only (the server binds 127.0.0.1, never 0.0.0.0); no telemetry; no auto-update.
 Run locally:  python desktop/launcher.py
 The pywebview import is deferred into main() so the helpers are importable/testable headless.
 """
 
+import atexit
 import os
 import signal
 import socket
@@ -69,11 +71,16 @@ def free_port(port):
 
 def start_server(host=HOST, port=DEFAULT_PORT):
     """Start the FastAPI app as a child uvicorn process (loopback only); return the Popen.
-    The caller MUST stop_server() it on exit (handle held — no orphaned server)."""
+    The caller MUST stop_server() it on exit (handle held — no orphaned server).
+
+    ``start_new_session=True`` puts the child in its OWN process group/session, so (a) a
+    terminal Ctrl-C aimed at the launcher's group doesn't race-kill the child before our
+    handler runs, and (b) stop_server() can reap the whole group (uvicorn + any workers)."""
     return subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "api:app",
          "--host", host, "--port", str(port), "--log-level", "warning"],
         cwd=str(PIPELINE_DIR),
+        start_new_session=True,
     )
 
 
@@ -91,21 +98,60 @@ def wait_healthy(port=DEFAULT_PORT, host=HOST, timeout=40.0):
     return False
 
 
+def _signal_group(proc, sig):
+    """Send ``sig`` to the child's whole process group (start_new_session leader); fall
+    back to signalling just the child if the group can't be resolved."""
+    try:
+        os.killpg(os.getpgid(proc.pid), sig)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.send_signal(sig)
+        except (ProcessLookupError, OSError):
+            pass
+
+
 def stop_server(proc, timeout=8.0):
-    """Terminate the child server, escalating to KILL; never leave it orphaned."""
+    """Terminate the child server's whole process group, escalating to KILL; idempotent and
+    safe to call from a signal handler, atexit, and the main finally — never leaves an
+    orphan holding the port."""
     if proc is None or proc.poll() is not None:
         return
-    proc.terminate()
+    _signal_group(proc, signal.SIGTERM)
     try:
         proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait(timeout=timeout)
+        _signal_group(proc, signal.SIGKILL)
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def install_cleanup(proc):
+    """Guarantee the child server is reaped however the launcher exits — window close
+    (main's finally), normal exit (atexit), OR a hard kill via SIGTERM/SIGINT (handlers).
+    This closes the D-59 yellow: a killed launcher can no longer orphan uvicorn on port
+    8000. (SIGKILL is uncatchable by design; free_port() on the next launch self-heals it.)"""
+    atexit.register(stop_server, proc)
+
+    def _handler(signum, _frame):
+        stop_server(proc)
+        # re-raise the default disposition so the exit status reflects the signal
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        try:
+            signal.signal(sig, _handler)
+        except (ValueError, OSError):
+            pass  # not on the main thread / unsupported — atexit + finally still cover it
+    return _handler
 
 
 def main(port=DEFAULT_PORT):
     free_port(port)                       # pre-kill a stale server holding the port
     proc = start_server(port=port)
+    install_cleanup(proc)                 # reap the child on window-close, exit, OR kill
     try:
         if not wait_healthy(port=port):
             stop_server(proc)
