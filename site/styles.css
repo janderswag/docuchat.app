@@ -68,9 +68,12 @@ h3{font-size:22px;font-weight:600;letter-spacing:0}
 .lk-shield{fill:var(--gold);stroke:#fff;stroke-width:1.5;stroke-linejoin:round}
 .lk-lock{fill:none;stroke:#fff;stroke-width:1.6;stroke-linecap:round}
 .lk-lock-body{fill:#fff;stroke:none}
-.topnav{display:flex;gap:26px;font-size:15px}
-.topnav a{color:var(--ink-soft)}
-.topnav a:hover{color:var(--navy)}
+.topnav{display:flex;align-items:center;gap:26px;font-size:15px}
+.topnav .nav-gh{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:999px;
+  background:var(--navy);color:#fff;font-family:"Newsreader",serif;font-size:14.5px;
+  transition:transform .15s ease,background .15s ease}
+.topnav .nav-gh:hover{background:var(--navy-deep);color:#fff;text-decoration:none;transform:translateY(-1px)}
+.topnav .nav-gh svg{width:16px;height:16px;fill:currentColor}
 
 /* hero — centered, on a soft luminous glow */
 .hero{position:relative;text-align:center;padding:78px 28px 34px;max-width:var(--maxw);overflow:visible}
@@ -115,7 +118,8 @@ h1 em{font-weight:500}
 .screen-demo{display:block;width:100%;aspect-ratio:1120/700;border:0;background:var(--paper-2)}
 
 /* setup — two columns: intro + a card diagram of the local stack */
-.setup{padding:104px 28px 36px;display:grid;grid-template-columns:.84fr 1.16fr;gap:54px;align-items:start;max-width:var(--maxw)}
+.setup{padding:104px 28px 36px;display:grid;grid-template-columns:.84fr 1.16fr;gap:54px;align-items:stretch;max-width:var(--maxw)}
+.setup-grid{display:flex;flex-direction:column}
 .setup-intro{position:sticky;top:92px}
 .setup-intro h2{margin:0 0 16px}
 .setup-intro p{color:var(--ink-soft);font-size:18px;margin:0 0 12px;max-width:36ch}
@@ -123,7 +127,7 @@ h1 em{font-weight:500}
 .setup-after strong{font-weight:600;color:var(--navy)}
 .setup-link{display:inline-block;margin-top:8px;font-family:"IBM Plex Mono",monospace;font-size:13px;letter-spacing:.04em}
 
-.setup-featured{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:stretch}
+.setup-featured{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;align-items:stretch;flex:1}
 .scard{position:relative;border-radius:16px;border:1px solid var(--rule);background:#fff;padding:22px;
   display:flex;flex-direction:column;gap:8px}
 .scard .snum{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
