@@ -182,7 +182,16 @@ disable done; M1-10 air-gap is **egress-monitored** (D-31), not physical disconn
 
 ## Next task
 
-**▶ NEXT: docuchat.app launch batch (D-61, owner-directed 2026-06-30; Builder prompt emitted).** Rebrand
+**✅ docuchat.app launch batch SHIPPED + LIVE (D-61, Tester GREEN ×8 on `b1acb0a`, 2026-06-30).** 276/276,
+baselines byte-identical, app untouched, Windows branch + POSIX green, phone-leak guard clean, CSP renders.
+**Deployed:** pushed `main` (`c2b5595`), GitHub Pages enabled (Actions build), custom domain set, cert
+provisioned → **`https://docuchat.app` is live with a valid Let's Encrypt cert + Enforce-HTTPS on**; www→apex
+301; CSP/referrer/security.txt in place. **Lone open item (owner decision):** gold link text `#9a7727` on
+white = 4.16:1, just under WCAG AA 4.5:1 (buttons fine) → darken link-gold or make body links navy. **Still
+owner-side:** run the Windows build on a Windows box → `docuchat-setup.exe` → attach to Release (button stays
+"soon" until then); swap the official Product Hunt badge SVG; optional Cloudflare-proxy HSTS hardening.
+
+**(superseded plan) ▶ docuchat.app launch batch (D-61, owner-directed 2026-06-30; Builder prompt emitted).** Rebrand
 public `site/` → **docuchat.app** + repalette to **navy/light-gray/white + GOLD** (60-30-10), recolor the
 logo lock-shield gold + ship it as inline SVG, add **Cal.com** "book a call" + email + GitHub +
 **Product Hunt** badge + OSS star/share/PR band + `at1.png` problem illustration, strip em-dashes, broaden
