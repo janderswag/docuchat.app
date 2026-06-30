@@ -21,7 +21,7 @@
 }
 
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;overflow-x:hidden}
 body{
   margin:0;background:var(--paper);color:var(--ink);
   font-family:"Newsreader",Georgia,"Times New Roman",serif;
@@ -75,7 +75,7 @@ h3{font-size:22px;font-weight:600;letter-spacing:0}
 /* hero — centered, on a soft luminous glow */
 .hero{position:relative;text-align:center;padding:78px 28px 34px;max-width:var(--maxw);overflow:visible}
 .glow{position:absolute;left:50%;top:-90px;transform:translateX(-50%);z-index:0;pointer-events:none;
-  width:min(1120px,120vw);height:660px;filter:blur(12px);
+  width:min(1120px,100vw);height:660px;filter:blur(12px);
   background:
     radial-gradient(50% 58% at 50% 22%, rgba(184,144,47,.10), rgba(184,144,47,0) 64%),
     radial-gradient(38% 48% at 50% 18%, rgba(14,34,64,.06), rgba(14,34,64,0) 72%);}
