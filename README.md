@@ -2,10 +2,13 @@
 
 **Parse and chat with sensitive legal documents — privately, on your own hardware, using local open-source LLMs, with every answer cited to the exact page and verified against the source.**
 
+🌐 **Website and desktop app: [docuchat.app](https://docuchat.app).** One-click download for macOS (Windows soon), or run it from source below.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB.svg)](https://www.python.org/)
 [![Stack: FastAPI + Ollama + LanceDB](https://img.shields.io/badge/stack-FastAPI%20%C2%B7%20Ollama%20%C2%B7%20LanceDB-0a7e8c.svg)](#tech-stack)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Website: docuchat.app](https://img.shields.io/badge/website-docuchat.app-0e2240.svg)](https://docuchat.app)
 
 <a href="https://www.producthunt.com/posts/legal-document-chat-for-attorneys-open?utm_source=badge-featured&amp;utm_medium=badge" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1180166&amp;theme=light" alt="Featured on Product Hunt" height="36" /></a>
 
@@ -70,6 +73,10 @@ How local, self-hosted legal document chat differs from sending documents to a c
 | Retrieval & answering | **Hand-rolled RAG** — *no LangChain, no LlamaIndex*, for a transparent claim → chunk → character-offset citation path |
 | UI | Vanilla **HTML / CSS / JS** (no framework) |
 | Deploy | **Docker Compose** (publishes `127.0.0.1:8000` only) |
+
+## Download
+
+The easiest way to run docuchat is the **one-click desktop app** at **[docuchat.app](https://docuchat.app)**: no terminal, and a first-run wizard installs the local models for you. macOS is available today; a Windows build is coming soon. Prefer to run it yourself? Follow the Quickstart below.
 
 ## Quickstart
 
