@@ -225,8 +225,10 @@ h1 em{font-weight:500}
   .hero-shot{margin-top:38px}
   .hero-cta{gap:10px}
   h1{max-width:none}
-  .topnav{display:none}
 }
 @media (max-width:560px){
   .setup-featured{grid-template-columns:1fr}
+  .masthead{padding-left:18px;padding-right:18px}
+  .wordmark{font-size:18px}
+  .topnav .nav-gh{padding:8px 15px;font-size:13.5px;gap:7px}
 }
