@@ -1,0 +1,32 @@
+# docuchat.app — robots policy
+# Open to all crawlers, and explicitly welcoming AI / answer-engine crawlers.
+
+User-agent: *
+Allow: /
+
+# AI / answer-engine crawlers (explicitly allowed for GEO/AEO)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://docuchat.app/sitemap.xml

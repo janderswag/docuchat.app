@@ -1,0 +1,83 @@
+# docuchat.app — full description for language models
+
+## What it is
+
+docuchat is a private, local-first AI for legal documents. An attorney (or any law office)
+installs it on their own computer, uploads their own documents, and asks plain-English questions
+across them. Every answer comes back grounded in and cited to the source: file, page, section, and
+the exact verbatim span. The user verifies each answer against the cited source in one click.
+
+It is NOT an AI lawyer. It gives no legal advice, draws no legal conclusions, predicts no outcomes,
+and takes no actions. It locates and summarizes what the documents say, with verifiable citations.
+
+## How it works
+
+The pipeline is: ingest -> parse -> chunk + embed -> retrieve -> answer -> verify -> cite.
+
+1. Ingest / parse: PyMuPDF for born-digital text (with page + character offsets), Docling
+   TableFormer for tables and exhibits, Tesseract OCR for scanned image-only pages.
+2. Chunk + embed: page- and section-aware chunks with source context, embedded by the local
+   `bge-m3` model into an embedded LanceDB vector store (no server).
+3. Retrieve: a hard matter pre-filter runs before similarity search, so retrieval is scoped to one
+   legal matter and one client's documents can never leak into another's answer.
+4. Answer: the local `qwen3:14b` model answers only from the retrieved context, under a strict
+   grounded-and-cite-or-refuse prompt. If the documents do not support an answer, it says "I could
+   not find this in the documents" rather than inventing one.
+5. Verify: each cited quote is mechanically checked, character-by-character, to overlap a retrieved
+   chunk's character range on its page. The displayed page and span are derived from the verified
+   match, never asserted by the model. A fabricated or altered quote yields zero citations.
+6. Cite: the UI shows the answer with source chips and opens the original page with the cited span
+   highlighted.
+
+## The facts that make it different
+
+- 100% local: inference, embeddings, OCR, and storage all run on the user's machine. The service
+  binds to loopback (`127.0.0.1`) only; it never binds a public interface.
+- Private: the query path makes no cloud calls and needs no API keys. Documents are never uploaded
+  to OpenAI, Anthropic, Google, or any third party, which preserves attorney-client privilege.
+- Offline / air-gapped: after a one-time local model download via Ollama, it runs with no internet
+  connection.
+- Verifiable citations: mechanical, character-level span verification is the core differentiator.
+  On our open evaluation, page+span citation accuracy was 98.4% (62 of 63) with 0 displayed
+  fabrications.
+- Free and open source: MIT-licensed, no license servers, no per-token billing, no subscription.
+
+## How it compares to cloud AI chat (ChatGPT, Claude, Gemini)
+
+- Where documents go: docuchat keeps them on your machine (loopback only); cloud chatbots upload
+  them to a third-party cloud.
+- Models: docuchat uses local, open-source models via Ollama; cloud chat uses closed, vendor-hosted
+  models.
+- Citations: docuchat mechanically verifies every citation to a page and exact span; cloud chat
+  citations are often unverified or hallucinated.
+- Offline: docuchat works offline after the one-time model download; cloud chat does not.
+- Cost: docuchat is free; cloud chat is a subscription or per-token.
+- Privilege: docuchat preserves attorney-client privilege because nothing leaves the machine; cloud
+  chat puts it at risk because data leaves your control.
+
+## Tech stack
+
+- Backend / API: Python and FastAPI, loopback-only.
+- Local inference: Ollama, running `qwen3:14b` (chat) and `bge-m3` (embeddings), with an optional
+  `bge-reranker-v2-m3`.
+- Vector store: LanceDB, embedded, no server.
+- Parsing and OCR: PyMuPDF, Docling (TableFormer), Tesseract, python-docx.
+- Retrieval and answering: hand-rolled RAG (no LangChain, no LlamaIndex) for a transparent
+  claim -> chunk -> character-offset citation path.
+- UI: vanilla HTML, CSS, and JavaScript (no framework).
+- Deploy: the desktop app wraps the local server; the container path uses Docker Compose and
+  publishes `127.0.0.1:8000` only.
+
+## Platforms and download
+
+- One-click desktop app at https://docuchat.app: no terminal, and a first-run wizard installs the
+  local models for you. macOS is available today; a Windows build is coming soon.
+- Or run it yourself from source (Python 3.12+, Ollama). See the README quickstart.
+
+## Links
+
+- Website: https://docuchat.app/
+- Source (MIT): https://github.com/janderswag/legal-document-chat
+- README: https://github.com/janderswag/legal-document-chat/blob/main/README.md
+- Architecture decisions: https://github.com/janderswag/legal-document-chat/blob/main/DECISIONS.md
+- Download: https://github.com/janderswag/legal-document-chat/releases

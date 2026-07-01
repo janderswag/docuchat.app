@@ -1,0 +1,14 @@
+# docuchat
+
+> docuchat is a private, local AI for legal documents. It reads your contracts, transcripts, pleadings, and exhibits and answers plain-English questions with every fact pinned to the exact page and span it came from. It runs 100% on your own computer: no cloud, no account, no telemetry. Free and open source (MIT).
+
+Key facts: inference, embeddings, OCR, and storage are all local (binds to loopback `127.0.0.1` only). Every cited quote is mechanically verified character-by-character against the source; a fabricated or altered quote yields zero citations. On our open evaluation, page+span citation accuracy was 98.4% (62 of 63) with 0 displayed fabrications. It is not an AI lawyer and gives no legal advice: it locates and summarizes what your documents say, with citations you verify.
+
+## Docs
+- [Website](https://docuchat.app/): product overview, setup, and download
+- [README](https://github.com/janderswag/legal-document-chat/blob/main/README.md): features, cloud-AI comparison, FAQ, architecture, tech stack
+- [Architecture decisions](https://github.com/janderswag/legal-document-chat/blob/main/DECISIONS.md): why hand-rolled RAG, why LanceDB, why mechanical citation verification
+
+## About
+- [GitHub repository](https://github.com/janderswag/legal-document-chat): MIT-licensed source
+- [Download](https://github.com/janderswag/legal-document-chat/releases): one-click macOS app (Windows coming soon)
