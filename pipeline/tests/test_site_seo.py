@@ -65,9 +65,11 @@ class TestPhaseAMachineFiles(unittest.TestCase):
         self.assertIn("Organization", types, "Organization JSON-LD missing/invalid")
         self.assertIn("SoftwareApplication", types, "SoftwareApplication JSON-LD missing/invalid")
         app = next(b for b in blocks if b.get("@type") == "SoftwareApplication")
-        # sanity: the offer is free and the download points at the releases page
+        # sanity: the offer is free; downloadUrl points at the repo (run-from-source is
+        # the only shipped path) until a real release artifact exists (P2.6 honesty).
         self.assertEqual(app["offers"]["price"], "0")
-        self.assertIn("releases", app["downloadUrl"])
+        self.assertIn("github.com/janderswag/legal-document-chat", app["downloadUrl"])
+        self.assertNotIn("releases", app["downloadUrl"])
 
 
 def _visible_faq(html_text):

@@ -30,10 +30,17 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("ollama", low)                       # 1) engine
         self.assertIn("qwen3", low)                        # 2) models (in the stack diagram)
         self.assertIn("bge-m3", low)
-        self.assertIn("download for macos", low)           # 3) the app
+        self.assertIn("run from source today", low)        # 3) the honest get-it path
 
-    def test_macos_cta_points_at_releases(self):
-        self.assertRegex(self.html, r"github\.com/[\w.-]+/[\w.-]+/releases")
+    def test_download_section_is_honest(self):
+        # P2.6/D-65: no packaged artifact has shipped, so the page must not claim one.
+        # The working path (run from source) links the repo; the platform cards say soon.
+        low = self.html.lower()
+        self.assertNotIn("available today", low)
+        self.assertIn("signed app coming soon", low)       # macOS card
+        self.assertRegex(self.html, r"github\.com/[\w.-]+/legal-document-chat")
+        # No CTA may point at the (empty) releases page until a release exists.
+        self.assertNotRegex(self.html, r"github\.com/[\w.-]+/[\w.-]+/releases")
 
     def test_windows_coming_soon(self):
         self.assertIn("coming soon", self.html.lower())

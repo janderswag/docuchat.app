@@ -70,9 +70,10 @@ The pipeline is: ingest -> parse -> chunk + embed -> retrieve -> answer -> verif
 
 ## Platforms and download
 
-- One-click desktop app at https://docuchat.app: no terminal, and a first-run wizard installs the
-  local models for you. macOS is available today; a Windows build is coming soon.
-- Or run it yourself from source (Python 3.12+, Ollama). See the README quickstart.
+- Signed one-click apps for macOS and Windows are in progress; they will be linked at
+  https://docuchat.app the moment they ship.
+- Today: run it from source on macOS, Windows, or Linux (Python 3.12+, Ollama). See the README
+  quickstart. The first-run wizard inside the app downloads the local models for you.
 
 ## Links
 
@@ -80,4 +81,4 @@ The pipeline is: ingest -> parse -> chunk + embed -> retrieve -> answer -> verif
 - Source (MIT): https://github.com/janderswag/legal-document-chat
 - README: https://github.com/janderswag/legal-document-chat/blob/main/README.md
 - Architecture decisions: https://github.com/janderswag/legal-document-chat/blob/main/DECISIONS.md
-- Download: https://github.com/janderswag/legal-document-chat/releases
+- Get it (run from source today; signed apps soon): https://github.com/janderswag/legal-document-chat

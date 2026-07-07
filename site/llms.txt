@@ -11,4 +11,4 @@ Key facts: inference, embeddings, OCR, and storage are all local (binds to loopb
 
 ## About
 - [GitHub repository](https://github.com/janderswag/legal-document-chat): MIT-licensed source
-- [Download](https://github.com/janderswag/legal-document-chat/releases): one-click macOS app (Windows coming soon)
+- [Get docuchat](https://github.com/janderswag/legal-document-chat): run from source today; signed macOS and Windows apps coming soon

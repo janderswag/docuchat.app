@@ -55,7 +55,7 @@
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "macOS",
     "url": "https://docuchat.app/",
-    "downloadUrl": "https://github.com/janderswag/legal-document-chat/releases",
+    "downloadUrl": "https://github.com/janderswag/legal-document-chat",
     "softwareLicense": "https://opensource.org/licenses/MIT",
     "description": "Private, local AI for legal documents. Ask questions across your contracts, transcripts, and exhibits and get answers pinned to the exact page and span, running 100% on your own computer. Every citation is mechanically verified against the source; no cloud, no account, no telemetry.",
     "offers": {
@@ -100,21 +100,22 @@
         Get answers <em>pinned to the&nbsp;page.</em>
       </h1>
       <p class="lede reveal" style="--d:160ms">
-        docuchat is a private, local AI for your legal documents. It reads your contracts, transcripts,
-        pleadings, and exhibits and answers in plain English, with every fact tied to the exact line it came
-        from, and it never leaves your computer.
+        Privilege-safe by architecture: docuchat runs entirely on your own computer, so your documents
+        never touch a cloud. It reads your contracts, transcripts, pleadings, and exhibits and answers
+        in plain English, with every fact cited to the exact line and mechanically verified against
+        the source.
       </p>
       <div class="hero-cta reveal" style="--d:240ms">
         <a class="btn btn-mac" href="#get">
           <svg viewBox="0 0 24 24" class="apple" aria-hidden="true"><path d="M16.4 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.6 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.2-2.3 1.2-2.4-.1 0-2.2-.9-2.2-3.5zM14.3 6c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>
-          Download for Mac
+          Download for Mac <span class="btn-soon">soon</span>
         </a>
         <a class="btn btn-win" href="#get">
           <svg viewBox="0 0 24 24" class="win" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zM10.5 12.5v7.1L3 18.5v-6H10.5zM11.5 4.2 21 3v8.5h-9.5V4.2zM21 12.5V21l-9.5-1.3V12.5H21z"/></svg>
           Download for Windows <span class="btn-soon">soon</span>
         </a>
       </div>
-      <p class="hero-fineprint reveal" style="--d:320ms">Free &amp; open &middot; no account &middot; no sign-up</p>
+      <p class="hero-fineprint reveal" style="--d:320ms">Free &amp; open &middot; no account &middot; no sign-up &middot; <a href="#get">run it from source today</a></p>
 
       <!-- Product shot, directly under the buttons: the LIVE animated demo (auto-plays, loops).
            Swap the iframe src for a real screen-recording later. -->
@@ -134,7 +135,7 @@
         <p>A first-run wizard inside the app walks you through each step and checks it off.
            Everything else (parsing, search, OCR, and the citation checker) is built in.</p>
         <p class="setup-after"><strong>After setup, pull the network cable.</strong> It all runs offline.</p>
-        <a class="setup-link" href="#get">Get the macOS app&nbsp;↓</a>
+        <a class="setup-link" href="#get">Get docuchat&nbsp;↓</a>
       </div>
 
       <div class="setup-grid">
@@ -158,9 +159,9 @@
               <path class="lk-lock" d="M25 24 V23 Q25 21 27 21 Q29 21 29 23 V24"/>
               <rect class="lk-lock-body" x="24.3" y="24" width="5.4" height="4.4" rx="1"/>
             </svg></span>
-            <h3>Download the app</h3>
+            <h3>Get docuchat</h3>
             <p>Open it: the first-run wizard fetches the models (qwen3 + bge-m3, ~10&nbsp;GB) for you, once. Then you're set, fully offline.</p>
-            <a href="#get">Get the macOS app&nbsp;↓</a>
+            <a href="#get">Get docuchat&nbsp;↓</a>
           </article>
         </div>
       </div>
@@ -294,19 +295,25 @@
         <h2>Open it in a window, not a terminal.</h2>
       </header>
       <div class="get-cards">
-        <a class="dl dl-mac" href="https://github.com/janderswag/legal-document-chat/releases" target="_blank" rel="noopener noreferrer">
+        <div class="dl dl-mac" aria-disabled="true">
           <svg viewBox="0 0 24 24" class="apple" aria-hidden="true"><path d="M16.4 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.6 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.2-2.3 1.2-2.4-.1 0-2.2-.9-2.2-3.5zM14.3 6c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>
-          <span class="dl-title">Download for macOS</span>
-          <span class="dl-sub">Universal &middot; Apple silicon &amp; Intel</span>
-        </a>
+          <span class="dl-title">macOS</span>
+          <span class="dl-sub">Signed app coming soon</span>
+        </div>
         <div class="dl dl-win" aria-disabled="true">
           <svg viewBox="0 0 24 24" class="win" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zM10.5 12.5v7.1L3 18.5v-6H10.5zM11.5 4.2 21 3v8.5h-9.5V4.2zM21 12.5V21l-9.5-1.3V12.5H21z"/></svg>
           <span class="dl-title">Windows</span>
           <span class="dl-sub">Coming soon</span>
         </div>
+        <a class="dl dl-src" href="https://github.com/janderswag/legal-document-chat" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" class="srcico" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 3 12 8 18"/><polyline points="16 6 21 12 16 18"/></svg>
+          <span class="dl-title">Run from source today</span>
+          <span class="dl-sub">macOS &middot; Windows &middot; Linux &middot; free &amp; open</span>
+        </a>
       </div>
-      <p class="get-note">Phase&nbsp;A is an unsigned developer build, so macOS may ask you to confirm "Open"
-         the first time. Still needs Ollama + the two models (the in-app wizard checks for you).</p>
+      <p class="get-note">The one-click apps are being packaged and signed now; they will be linked here the
+         moment they ship. Running from source takes a few commands, and the in-app wizard downloads the
+         models and checks everything for you.</p>
     </section>
 
     <!-- FAQ -->
@@ -354,7 +361,7 @@
         </details>
         <details class="faq-item reveal">
           <summary>Which platforms are supported?</summary>
-          <p>A one-click macOS app is available today, with a first-run wizard that installs the local models for you. A Windows build is coming soon. You can also run it from source on any platform with Python and Ollama.</p>
+          <p>Signed one-click apps for macOS and Windows are in progress and will be linked on this page when they ship. Today you can run docuchat from source on macOS, Windows, or Linux with Python and Ollama, and the first-run wizard inside the app downloads the local models for you.</p>
         </details>
       </div>
     </section>
@@ -441,7 +448,7 @@
           "name": "Which platforms are supported?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "A one-click macOS app is available today, with a first-run wizard that installs the local models for you. A Windows build is coming soon. You can also run it from source on any platform with Python and Ollama."
+            "text": "Signed one-click apps for macOS and Windows are in progress and will be linked on this page when they ship. Today you can run docuchat from source on macOS, Windows, or Linux with Python and Ollama, and the first-run wizard inside the app downloads the local models for you."
           }
         }
       ]
