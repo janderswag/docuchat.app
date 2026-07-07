@@ -111,6 +111,10 @@ class TestSafetyStructural(unittest.TestCase):
                           # /kb/ingest/status (Move 0c): read-only ingest-queue progress
                           # for the Hub; no document content.
                           "/kb/ingest/status",
+                          # /search (Move 1c): retrieval-only exhaustive/BM25 search,
+                          # matter-pre-filtered, no generation - zero hallucination
+                          # surface; truncation always labeled.
+                          "/search",
                           "/chat", "/chat/stream", "/chat/threads", "/chat/threads/{thread_id}",
                           "/kb/thumb/{doc_id}", "/kb/highlight/{doc_id}",
                           "/clauses/taxonomy", "/clauses/review",
