@@ -4,16 +4,61 @@ One responsibility: persistence. All queries are parameterized (no string
 interpolation). The DB lives at pipeline/.kb_catalog.db (git-ignored, D-28) and is
 overridable via ``db_path`` for tests. Matter slugs are path-safe (validated here so
 no caller can inject a path).
+
+Encryption (D-73, design §3): the PRODUCTION catalog is SQLCipher-encrypted, keyed
+by the Keychain master key (keyvault). ``_connect`` detects the format from the file
+header — SQLCipher files don't carry SQLite's plaintext magic — so both formats work
+through the one code path. New catalogs are created encrypted ONLY at the fixed
+production path on macOS (``_PRODUCTION_DB``, compared literally so tests that swap
+``DEFAULT_DB`` keep getting plain files); existing plain catalogs are migrated once
+via ``migrate_catalog_sqlcipher.py`` (rename-aside, rehearsed by the drill tests).
 """
 
 import hashlib
 import re
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 PIPELINE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB = PIPELINE_DIR / ".kb_catalog.db"
+_PRODUCTION_DB = PIPELINE_DIR / ".kb_catalog.db"  # frozen; DEFAULT_DB moves in tests
+_SQLITE_HEADER = b"SQLite format 3\x00"
+
+# Tests inject a key provider (callable -> 32 bytes); None = keyvault.master_key.
+MASTER_KEY_PROVIDER = None
+
+
+def _master_key():
+    if MASTER_KEY_PROVIDER is not None:
+        return MASTER_KEY_PROVIDER()
+    import keyvault  # deferred: keyvault imports this module
+    return keyvault.master_key()
+
+
+def is_encrypted(path):
+    """True if the file exists and is NOT plain SQLite (SQLCipher randomizes the
+    header). An empty/missing file is 'not encrypted'."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(16)
+    except FileNotFoundError:
+        return False
+    return len(head) == 16 and head != _SQLITE_HEADER
+
+
+def _encrypt_new(path):
+    """Create-time policy: encrypt ONLY the real production catalog, only on macOS
+    (Keychain), and only if the master key is actually reachable. Everything else
+    (tests, scratch copies, other platforms) stays plain sqlite."""
+    if sys.platform != "darwin" or Path(path) != _PRODUCTION_DB:
+        return False
+    try:
+        _master_key()
+        return True
+    except Exception:
+        return False  # no Keychain -> plain catalog beats no catalog
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS matters (
@@ -85,8 +130,15 @@ def _now():
 def _connect(db_path=None):
     path = Path(db_path) if db_path else DEFAULT_DB
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
-    conn.row_factory = sqlite3.Row
+    if is_encrypted(path) or (not path.exists() and _encrypt_new(path)):
+        from sqlcipher3 import dbapi2 as sqlcipher
+        conn = sqlcipher.connect(str(path))
+        conn.row_factory = sqlcipher.Row
+        # key pragma must precede any other statement; hex form avoids derivation
+        conn.execute(f"PRAGMA key = \"x'{_master_key().hex()}'\"")
+    else:
+        conn = sqlite3.connect(str(path))
+        conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
     # Idempotent migrations for pre-existing databases (CREATE TABLE IF NOT EXISTS
     # doesn't alter existing tables). doc_type: 'document' | 'transcript' (T-TRANS/D-70,
@@ -94,7 +146,9 @@ def _connect(db_path=None):
     try:
         conn.execute("ALTER TABLE documents ADD COLUMN doc_type TEXT NOT NULL DEFAULT 'document'")
         conn.commit()
-    except sqlite3.OperationalError:
+    except Exception as e:  # sqlite3 and sqlcipher3 raise distinct OperationalErrors
+        if type(e).__name__ != "OperationalError":
+            raise
         pass  # column already present
     return conn
 

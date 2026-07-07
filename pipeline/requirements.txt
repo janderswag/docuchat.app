@@ -31,3 +31,7 @@ python-docx==1.2.0
 # network, no cloud KMS. The master key lives in the macOS Keychain via the
 # system `security` CLI (no python keyring dependency).
 cryptography==49.0.0
+# SQLCipher catalog (D-73): the production catalog file is AES-encrypted at rest,
+# keyed from the Keychain master key. Prebuilt wheels, bundled SQLCipher — local
+# only, no network. Plain sqlite3 remains the driver for test/scratch catalogs.
+sqlcipher3-wheels==0.5.7
