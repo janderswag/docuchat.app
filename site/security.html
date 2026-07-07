@@ -57,13 +57,23 @@
 
     <h2>Where your data lives at rest</h2>
     <p>Your documents, the search index, and your chat history live in files on your own disk under
-      your own user account. The app excludes those stores from Time Machine backups and Spotlight
-      indexing so client text does not silently flow into backups or system search.</p>
+      your own user account, and they are encrypted. The search index sits inside an AES-256
+      encrypted volume that is unlocked only while the app runs. The app database is encrypted
+      with SQLCipher. Each matter's original documents are encrypted with that matter's own key.
+      All keys live in the macOS Keychain, never in a file. The app also excludes these stores
+      from Time Machine backups and Spotlight indexing so client text does not silently flow into
+      backups or system search.</p>
+    <p>Encryption makes deletion provable. When you dispose of a matter, the app destroys that
+      matter's encryption key, which makes its original documents unrecoverable even from old
+      copies, and issues a Certificate of Disposition stating the method in NIST SP 800-88 terms:
+      cryptographic erase (Purge) for the originals.</p>
     <div class="honest">
-      <p><b>Honest status.</b> Those files are not yet individually encrypted; they are protected by
-      your macOS user account and FileVault full-disk encryption, which you should have on.
-      Per-matter encryption with provable deletion is in active development and will be documented
-      here when it ships. We will never claim it before then.</p>
+      <p><b>Honest status.</b> The certificate never claims more than what happened: derived
+      search data is deleted and compacted inside the encrypted volume, which NIST classifies as
+      Clear, not Purge, and the certificate says so. Documents added before encryption shipped
+      keep a Clear certificate unless re-imported. Keep FileVault on regardless; layered
+      protection is the point, and backups or snapshots made before disposition remain outside
+      the app's control.</p>
     </div>
 
     <h2>Hardening that ships today</h2>
