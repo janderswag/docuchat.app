@@ -7,6 +7,22 @@ _Last updated: 2026-07-07_
 
 ## Status
 
+**2026-07-07 roadmap execution — Moves 0-1 COMPLETE (D-68, D-69).** Move 0: the ~90-doc
+allowlist bomb is fixed (matter-scoped retrieve p95 191ms @150k chunks, gate
+grade-identical); ingest is serialized + instrumented with interactive priority (/chat
+median unchanged during a 300-doc bulk ingest); site honesty patch shipped (NOTE: it
+rode along on a backend push without owner preview — copy-accuracy only; process fixed:
+future site work goes on a site-preview branch). Move 1: standing scale eval built
+(`eval/SCALE_EVAL.md`; 5,114 chunks, 50 large matters, per-class); data kept hybrid AND
+rerank OFF (both measured harmful); production chunking is now section-aware with full
+SAC + document_type/provenance/doc_date schema (golden recall@5 81%->98%, pool 100%;
+`reingest_kb.py` migrates old stores); refusal-triggered anchor-fed second pass; GET
+/search with exhaustive "every mention" + BM25 modes and a Search view. **[GATE] 63/63 —
+best ever; the second pass recovered F-026 (open since D-40).** 331 tests green. Next:
+Move 2 (transcript engine: page:line derived from verified offsets, speaker-aware
+chunking, transcript eval fixtures, depo digest + Word export), then Move 3 trust pack,
+Move 4 retention build, Move 5 eval-methodology page.
+
 **2026-07-07 session (P0-P3 speed/onboarding/packaging/site, D-63/D-64/D-65).** PUSHED to main:
 (1) **P0 speed** — the app UI's default answer path is now SSE `/chat/stream` (retrieved passages
 render first, tokens stream, verifier-confirmed citations replace everything on done; verifier
