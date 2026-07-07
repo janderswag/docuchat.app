@@ -1,0 +1,92 @@
+"""Encrypted KB volume (D-73, design §3): the LanceDB store lives inside an
+AES-256 encrypted APFS sparse bundle, mounted AT the store path so every existing
+query/ingest path is byte-identical — LanceDB just sees a directory.
+
+The volume passphrase is a dedicated Keychain secret (keyvault.keychain_secret,
+account ``kb-volume-key-v1``) — never a file, never in git, fed to hdiutil via
+stdin so it never appears in argv. Mount happens once at app startup (the measured
+~450ms is absorbed alongside the model preload, eval/ENCVOL_PROTO.md), eject at
+shutdown. Non-macOS or no bundle present = plain-store posture, unchanged.
+
+Migration to the volume is a separate rehearsed script
+(``migrate_store_encvol.py``); this module only owns the volume lifecycle.
+"""
+
+import logging
+import os
+import subprocess
+from pathlib import Path
+
+import keyvault
+
+log = logging.getLogger("docuchat.encvol")
+
+PIPELINE_DIR = Path(__file__).resolve().parent
+KB_BUNDLE = PIPELINE_DIR / ".lancedb_kb.sparsebundle"  # matches the .lancedb*/ gitignore
+VOLUME_ACCOUNT = "kb-volume-key-v1"
+
+
+def volume_passphrase():
+    """The volume unlock secret (hex of a 32-byte Keychain secret)."""
+    return keyvault.keychain_secret(VOLUME_ACCOUNT).hex()
+
+
+def is_mounted(mountpoint):
+    return os.path.ismount(str(mountpoint))
+
+
+def create_volume(bundle, passphrase, volname="docuchat-kb", size="20g"):
+    """Create an encrypted APFS sparse bundle (sparse: 'size' is a cap, not an
+    allocation). Passphrase via stdin only."""
+    r = subprocess.run(
+        ["hdiutil", "create", "-type", "SPARSEBUNDLE", "-fs", "APFS",
+         "-encryption", "AES-256", "-stdinpass", "-size", size,
+         "-volname", volname, str(bundle)],
+        input=passphrase, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"hdiutil create failed: {r.stderr.strip()}")
+
+
+def mount(bundle, mountpoint, passphrase):
+    """Attach the bundle at ``mountpoint`` (idempotent: already-mounted is a no-op)."""
+    if is_mounted(mountpoint):
+        return False
+    Path(mountpoint).mkdir(parents=True, exist_ok=True)
+    r = subprocess.run(
+        ["hdiutil", "attach", str(bundle), "-stdinpass", "-nobrowse",
+         "-mountpoint", str(mountpoint)],
+        input=passphrase, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"hdiutil attach failed: {r.stderr.strip()}")
+    return True
+
+
+def eject(mountpoint):
+    """Detach the volume; best-effort (a busy volume logs and stays)."""
+    if not is_mounted(mountpoint):
+        return False
+    r = subprocess.run(["hdiutil", "detach", str(mountpoint)],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        log.warning("could not eject %s: %s", mountpoint, r.stderr.strip())
+        return False
+    return True
+
+
+def mount_kb_volume(kb_db, bundle=None):
+    """App-startup hook: if the encrypted bundle exists, mount it at the KB store
+    path. Returns a status string for the Settings surface (no filesystem paths)."""
+    bundle = Path(bundle) if bundle else KB_BUNDLE
+    if not bundle.exists():
+        return "no-encrypted-volume"
+    try:
+        mount(bundle, kb_db, volume_passphrase())
+        return "mounted"
+    except Exception as e:
+        log.error("KB volume mount failed: %s", e)
+        return f"mount-failed: {type(e).__name__}"
+
+
+def eject_kb_volume(kb_db):
+    """App-shutdown hook: eject the KB volume if this process mounted one."""
+    return eject(kb_db)

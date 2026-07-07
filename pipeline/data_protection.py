@@ -16,6 +16,7 @@ Failures are logged, never fatal — a missing tmutil (non-macOS) is normal.
 """
 
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -53,6 +54,13 @@ def protect_paths(named_paths):
         if not p.exists():
             report[name] = "absent"
             continue
+        if os.path.ismount(str(p)):
+            # D-73: the store path IS the mounted encrypted volume. tmutil path
+            # exclusion doesn't apply to a mountpoint (EINVAL) and isn't needed:
+            # the on-disk bands live in the sparse bundle, excluded as its own entry
+            # (and ciphertext regardless).
+            report[name] = "inside-encrypted-volume"
+            continue
         tm = _tm_exclude(p) if sys.platform == "darwin" else False
         sl = _spotlight_marker(p) if p.is_dir() and sys.platform == "darwin" else False
         report[name] = ("time-machine-excluded" if tm else "tmutil-unavailable") + \
@@ -65,6 +73,12 @@ def protect_paths(named_paths):
 def default_protected_paths():
     """The client-data stores of the run-from-source layout, keyed by display name."""
     import catalog
+    import encvol
     import routes_kb
-    return {"search index": routes_kb.KB_DB, "document copies": routes_kb.KB_DOCS,
-            "catalog database": catalog.DEFAULT_DB}
+    paths = {"search index": routes_kb.KB_DB, "document copies": routes_kb.KB_DOCS,
+             "catalog database": catalog.DEFAULT_DB}
+    if encvol.KB_BUNDLE.exists():
+        # D-73: the encrypted volume's bands are ciphertext, but excluding the bundle
+        # keeps backups from churning on it (and crypto-shred cleaner: no stale bands)
+        paths["encrypted volume"] = encvol.KB_BUNDLE
+    return paths

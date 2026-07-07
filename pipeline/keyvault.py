@@ -54,9 +54,10 @@ def _security(commands):
                           capture_output=True, text=True)
 
 
-def master_key(service=KEYCHAIN_SERVICE, account=KEYCHAIN_ACCOUNT):
-    """Fetch the 32-byte master key from the login Keychain, creating it on first
-    use. Raises RuntimeError if the Keychain is unavailable (non-macOS / locked)."""
+def keychain_secret(account, service=KEYCHAIN_SERVICE):
+    """Fetch a 32-byte secret from the login Keychain by account name, creating it
+    on first use. Raises RuntimeError if the Keychain is unavailable (non-macOS /
+    locked). Used for the master key and the KB volume key — never for plaintext."""
     r = _security(f'find-generic-password -s "{service}" -a "{account}" -w\n')
     if r.returncode == 0:
         return bytes.fromhex(r.stdout.strip())
@@ -66,6 +67,14 @@ def master_key(service=KEYCHAIN_SERVICE, account=KEYCHAIN_ACCOUNT):
     if r.returncode != 0:
         raise RuntimeError(f"Keychain unavailable: {r.stderr.strip()}")
     return fresh
+
+
+def master_key(service=KEYCHAIN_SERVICE, account=KEYCHAIN_ACCOUNT):
+    """The 32-byte master key. Tests that injected ``catalog.MASTER_KEY_PROVIDER``
+    get their key back here too, so the whole envelope follows one injection point."""
+    if service == KEYCHAIN_SERVICE and catalog.MASTER_KEY_PROVIDER is not None:
+        return catalog.MASTER_KEY_PROVIDER()
+    return keychain_secret(account, service=service)
 
 
 # --- DEK envelope (AES-256-GCM) -----------------------------------------------
@@ -156,6 +165,53 @@ def dek_destroyed_at(matter_slug, db_path=None):
         return row["destroyed"] if row else None
     finally:
         conn.close()
+
+
+# --- matter-native helpers (encrypt-at-rest policy + transparent reads) --------
+
+# None = auto (encrypt natives iff the production catalog is encrypted — the signal
+# that the encryption cycle is active on this install). Tests force True/False.
+NATIVES_ENCRYPTION = None
+
+
+def natives_encryption_active(db_path=None):
+    if NATIVES_ENCRYPTION is not None:
+        return NATIVES_ENCRYPTION
+    return catalog.is_encrypted(Path(db_path) if db_path else catalog.DEFAULT_DB)
+
+
+def is_encrypted_file(path):
+    """True if the file starts with the docuchat encrypted-file magic."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(len(MAGIC)) == MAGIC
+    except (FileNotFoundError, OSError):
+        return False
+
+
+def write_matter_file(path, data, matter_slug, db_path=None):
+    """Write a native: encrypted with the matter DEK when encryption is active,
+    plain otherwise. Returns True if the write was encrypted."""
+    if natives_encryption_active(db_path):
+        dek = ensure_matter_dek(matter_slug, db_path=db_path)
+        nonce = secrets.token_bytes(_NONCE_LEN)
+        ct = AESGCM(dek).encrypt(nonce, data, _FILE_AAD)
+        Path(path).write_bytes(MAGIC + nonce + ct)
+        return True
+    Path(path).write_bytes(data)
+    return False
+
+
+def read_matter_file(path, matter_slug, db_path=None):
+    """Read a native's PLAINTEXT bytes, transparently decrypting encrypted files
+    (pre-encryption plain files read as-is). Raises KeyDestroyedError after a
+    crypto-shred — by design that content is gone."""
+    raw = Path(path).read_bytes()
+    if not raw.startswith(MAGIC):
+        return raw
+    dek = ensure_matter_dek(matter_slug, db_path=db_path)
+    body = raw[len(MAGIC):]
+    return AESGCM(dek).decrypt(body[:_NONCE_LEN], body[_NONCE_LEN:], _FILE_AAD)
 
 
 # --- file-layer encryption (natives/export tree) -------------------------------

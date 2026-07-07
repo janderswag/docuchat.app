@@ -96,6 +96,25 @@ app.include_router(routes_retention.router)
 
 
 @app.on_event("startup")
+def _mount_encrypted_store():
+    """Encryption cycle (D-73): if the KB store lives in an encrypted volume, mount
+    it BEFORE anything can touch the store path. Synchronous by design — the
+    measured ~450ms (eval/ENCVOL_PROTO.md) is absorbed here, alongside the model
+    preload, instead of on a user's first question. No bundle = plain-store no-op."""
+    import encvol
+    import routes_kb
+    app.state.encrypted_store = encvol.mount_kb_volume(routes_kb.KB_DB)
+
+
+@app.on_event("shutdown")
+def _eject_encrypted_store():
+    """Eject the KB volume on quit so the store is locked at rest."""
+    import encvol
+    import routes_kb
+    encvol.eject_kb_volume(routes_kb.KB_DB)
+
+
+@app.on_event("startup")
 def _warm_chat_model():
     """P0: pre-warm the chat model in a daemon thread so the FIRST question doesn't pay
     the ~5.5s cold reload. Non-blocking (health/setup respond immediately); loopback
