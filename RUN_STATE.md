@@ -7,6 +7,23 @@ _Last updated: 2026-07-07_
 
 ## Status
 
+**2026-07-07 encryption cycle — SHIPPED AND GATED (D-73, D-74).** The Move 4 deferred half
+is live: measured prototype first (eval/ENCVOL_PROTO.md: attach 443.8ms median, +36.8ms
+first-query overhead = 480.6ms, within the 500ms budget; per-matter volumes rejected at
+~0.4s x N), then per-unit rehearse-migrate-drill: SQLCipher catalog (Keychain master key,
+header-detect connect, rename-aside), KB store inside an AES-256 APFS sparse bundle mounted
+AT `.lancedb_kb` (query path byte-identical; mounted first at startup, ejected on quit),
+per-matter DEK-encrypted natives across upload/ingest/view/export (ingest scratch lives
+INSIDE the mounted volume; export surrenders checksum-verifiable plaintext), and crypto-shred
+at disposition — the certificate EARNS "Purge (cryptographic erase)" for originals only when
+every native was encrypted and the DEK destruction happened; derived data honestly stays
+Clear-inside-encrypted-volume. **[GATE] golden 63/63, NF 9/9, 0 rejected — grade-identical
+to m1-secondpass (new mechanical scorer pipeline/score_golden.py); scale eval identical to
+the D-69 baseline (dense golden 98%, all other classes 100%, pool 100%).** 394 tests green.
+OWNER QUEUE: delete the plaintext asides after verifying real queries
+(`pipeline/.kb_catalog.pre-enc-*.db`, `pipeline/.lancedb_kb.pre-encvol-*`); approve
+site-preview (now incl. the updated security.html encryption block); certs -> first build.
+
 **2026-07-07 roadmap execution — ALL MOVES 0-5 COMPLETE (D-68..D-72).** Move 2 (D-70):
 transcript engine — user-designated transcripts get DERIVED page:line citations (verified
 offsets through a line map; ambiguous spans fall back to page-only; condensed 4-up sheets fail

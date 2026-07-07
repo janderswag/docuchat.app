@@ -833,6 +833,34 @@
   bundle (D-71 pattern extends as-is); unexcluded bands would be ciphertext anyway (defense in
   depth vs today's plaintext store). (D-71, D-72)
 
+- **D-74 — Encryption cycle SHIPPED and gated: catalog, store volume, natives, crypto-shred
+  (2026-07-07).** Everything D-72 deferred is live, each unit rehearsed-then-migrated with a
+  drill test: (a) **SQLCipher catalog** — production `.kb_catalog.db` is encrypted, keyed from
+  the Keychain master key; `_connect` header-detects so plain test/scratch catalogs are
+  untouched; migration verified row-for-row before a rename-aside swap (data-loss drill: aside
+  byte-identical, wrong-key fails loud, sabotaged verify aborts pre-swap). (b) **KB store
+  volume** — `.lancedb_kb` is now the mountpoint of an AES-256 APFS sparse bundle (query path
+  byte-identical), mounted first at startup (~450ms, absorbed beside the model preload per the
+  D-73 measurement), ejected at shutdown; volume key is its own Keychain secret. (c) **Natives
+  at rest** — uploads and sample seeds write per-matter-DEK-encrypted files; source/thumb/
+  highlight/export decrypt transparently (view path in memory; export surrenders plaintext
+  matching the manifest checksums); ingest decrypts to scratch INSIDE the mounted volume so
+  extractor plaintext never touches the bare SSD; existing natives migrated in place with a
+  catalog-checksum integrity gate + decrypt-roundtrip proof before atomic replace. (d)
+  **Crypto-shred** — disposition destroys the wrapped DEK last, as its own audit-chain event;
+  the certificate EARNS "Purge (cryptographic erase, NIST SP 800-88r2)" per artifact class:
+  originals only when every native was encrypted AND the shred happened (one plain-era file
+  keeps them at Clear); derived index data stays Clear (deleted + compacted inside the
+  encrypted volume), stated with caveats. Proven by test: a ciphertext copy surviving disposal
+  is irrecoverable (KeyDestroyedError). **[GATE] golden 63/63 + NF 9/9 + 0 rejected claims —
+  grade-identical to the m1-secondpass baseline (mechanical scorer `score_golden.py`, which
+  reproduces the baseline grade incl. the F-042 same-document alternate-location cite); scale
+  eval dense recall@5 98% golden / 100% all other classes, pool 100% — identical to the D-69
+  baseline.** 394 tests green. Aside artifacts awaiting owner-verified manual delete:
+  `.kb_catalog.pre-enc-*.db`, `.lancedb_kb.pre-encvol-*` (plaintext until deleted). Keychain
+  items: master key + volume key in the login Keychain (Secure-Enclave binding is a
+  post-codesigning upgrade, not claimed). (D-71, D-72, D-73)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal
