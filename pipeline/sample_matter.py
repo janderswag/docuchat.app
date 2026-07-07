@@ -135,8 +135,17 @@ def seed_sample_matter(db_path=None, kb_db=None, kb_docs=None):
     for filename, body in _DOCS.items():
         dest = dest_dir / filename
         _write_pdf(dest, body)
+        # D-73: same at-rest posture as user uploads (the content is synthetic, but a
+        # mixed plain/encrypted natives tree would make the posture unauditable).
+        # Catalog rows carry the PLAINTEXT hash/size, computed before encrypting.
+        import hashlib
+        import keyvault
+        plain = dest.read_bytes()
+        keyvault.write_matter_file(dest, plain, slug, db_path=db_path)
         doc = catalog.add_document(slug, dest, filename=filename, status="parsing",
-                                   db_path=db_path)
+                                   db_path=db_path,
+                                   checksum=hashlib.sha256(plain).hexdigest(),
+                                   size_bytes=len(plain))
         kb_ingest.ingest_document(doc["id"], str(dest), slug,
                                   str(kb_db or KB_DB), db_path)
     return slug

@@ -225,9 +225,12 @@ def _sha256(path):
 
 
 def add_document(matter_slug, file_path, db_path=None, filename=None, status="parsing",
-                 doc_type="document"):
+                 doc_type="document", checksum=None, size_bytes=None):
     """Insert a documents row (default status 'parsing'); returns the row dict.
-    doc_type: 'document' or 'transcript' (user-designated at upload, D-70)."""
+    doc_type: 'document' or 'transcript' (user-designated at upload, D-70).
+    checksum/size_bytes: callers whose on-disk file is DEK-encrypted (D-73) pass the
+    PLAINTEXT sha256/size here — manifests and certificates always describe the
+    document, never the ciphertext. Default: hashed/stat'ed from disk, as before."""
     file_path = Path(file_path)
     name = filename or file_path.name
     conn = _connect(db_path)
@@ -235,8 +238,9 @@ def add_document(matter_slug, file_path, db_path=None, filename=None, status="pa
         cur = conn.execute(
             "INSERT INTO documents (matter_slug, filename, stored_path, checksum, size_bytes, "
             "status, reason, updated, doc_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (matter_slug, name, str(file_path), _sha256(file_path),
-             file_path.stat().st_size, status, None, _now(), doc_type),
+            (matter_slug, name, str(file_path), checksum or _sha256(file_path),
+             size_bytes if size_bytes is not None else file_path.stat().st_size,
+             status, None, _now(), doc_type),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM documents WHERE id = ?", (cur.lastrowid,)).fetchone()

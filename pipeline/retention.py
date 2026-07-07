@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import catalog
+import keyvault
 
 APP_VERSION = "0.2.0-dev"
 
@@ -54,7 +55,11 @@ def export_matter(matter_slug, kb_docs_root, db_path=None):
         for d in docs:
             p = Path(d["stored_path"])
             if p.is_file() and _within(p, kb_docs_root):
-                z.write(p, f"documents/{d['filename']}")
+                # D-73: surrender is PLAINTEXT — read_matter_file decrypts
+                # DEK-encrypted natives (and passes plain ones through), so the
+                # exported file matches the manifest checksum the attorney can verify.
+                z.writestr(f"documents/{d['filename']}",
+                           keyvault.read_matter_file(p, matter_slug, db_path=db_path))
         z.writestr("manifest/documents.json", json.dumps(docs, indent=2))
         z.writestr("manifest/matter.json", json.dumps(matter, indent=2))
         z.writestr("chats/threads.json", json.dumps(threads, indent=2))

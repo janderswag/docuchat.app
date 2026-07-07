@@ -7,6 +7,7 @@ structurally locked to documents/kb/ — it can never unlink a path outside that
 (hard rule #5: the attorney's originals are never read or deleted).
 """
 
+import hashlib
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -14,6 +15,7 @@ from fastapi.responses import FileResponse, Response
 
 import catalog
 import ingest_worker
+import keyvault
 import pdf_view
 from embed_store import delete_doc
 
@@ -71,16 +73,21 @@ async def upload(request: Request, matter: str, filename: str, doc_type: str = "
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / name
     stem, suf, i = dest.stem, dest.suffix, 1
-    while dest.exists() and dest.read_bytes() != body:  # avoid clobbering a different file
+    # dedup compares PLAINTEXT (read_matter_file decrypts D-73 natives transparently)
+    while dest.exists() and keyvault.read_matter_file(dest, matter) != body:
         dest = dest_dir / f"{stem}-{i}{suf}"
         i += 1
-    dest.write_bytes(body)
+    # D-73: written DEK-encrypted when the encryption cycle is active on this
+    # install, plain otherwise; catalog rows always carry the PLAINTEXT hash/size.
+    keyvault.write_matter_file(dest, body, matter)
 
     # Move 0b (D-68): enqueue to the single serialized ingest worker — uploads return
     # instantly and NEVER occupy the request thread pool (a bulk upload previously ran
     # up to 40 concurrent sync ingests there, starving /chat for hours).
     doc = catalog.add_document(matter, dest, filename=dest.name, status="queued",
-                               doc_type=doc_type)
+                               doc_type=doc_type,
+                               checksum=hashlib.sha256(body).hexdigest(),
+                               size_bytes=len(body))
     ingest_worker.enqueue(doc["id"], str(dest), matter, str(KB_DB), catalog.DEFAULT_DB)
     return doc
 
@@ -105,17 +112,25 @@ def source(doc_id: int):
     stored = Path(row["stored_path"])
     if not _within_kb(stored) or not stored.is_file():  # path-locked to documents/kb/
         raise HTTPException(status_code=404, detail="not found")
-    return FileResponse(stored, media_type=_MEDIA.get(stored.suffix.lower(), "application/octet-stream"))
+    media = _MEDIA.get(stored.suffix.lower(), "application/octet-stream")
+    if keyvault.is_encrypted_file(stored):  # D-73: serve the decrypted native
+        return Response(keyvault.read_matter_file(stored, row["matter_slug"]),
+                        media_type=media)
+    return FileResponse(stored, media_type=media)
 
 
 def _managed_pdf(doc_id):
-    """A managed PDF inside documents/kb/, or None. Path-locked + must be a .pdf."""
+    """A fitz-ready managed PDF inside documents/kb/, or None. Path-locked + must be
+    a .pdf. Returns the path — or, for a DEK-encrypted native (D-73), the decrypted
+    BYTES (pdf_view renders either; plaintext stays in memory)."""
     row = catalog.get_document(doc_id)
     if not row:
         return None
     stored = Path(row["stored_path"])
     if not _within_kb(stored) or stored.suffix.lower() != ".pdf" or not stored.is_file():
         return None
+    if keyvault.is_encrypted_file(stored):
+        return keyvault.read_matter_file(stored, row["matter_slug"])
     return stored
 
 

@@ -9,9 +9,11 @@ duplicates. Writes ONLY to .lancedb_kb — never an eval store.
 """
 
 import re
+import shutil
 from pathlib import Path
 
 import catalog
+import keyvault
 from embed_store import add_chunks, delete_doc
 from extractors import extract
 
@@ -89,9 +91,37 @@ def ingest_document(doc_id, file_path, matter_slug, db_path, catalog_db=None,
                     on_stage=None):
     """Extract -> chunk -> embed -> upsert into .lancedb_kb; update + return the status.
 
+    D-73: a DEK-encrypted native decrypts to a scratch file INSIDE the store
+    directory — which in production is the mounted encrypted volume, so extractor
+    plaintext never touches the bare SSD. The original filename is preserved in a
+    per-doc subdir (chunk metadata + delete_doc scope by name); the scratch tree is
+    removed when ingest ends, success or not. Plain natives take the direct path.
+
     ``on_stage`` (Move 0c): optional callback invoked with the stage name as each phase
     begins ("extract", "embed_write", "tables") — the ingest worker uses it for the Hub
     progress surface and per-stage timing logs. Purely observational; never alters flow."""
+    file_path = Path(file_path)
+    if not keyvault.is_encrypted_file(file_path):
+        return _ingest_inner(doc_id, file_path, matter_slug, db_path, catalog_db, on_stage)
+    scratch = Path(db_path) / ".ingest_tmp" / str(doc_id)
+    try:
+        scratch.mkdir(parents=True, exist_ok=True)
+        plain = scratch / file_path.name
+        plain.write_bytes(
+            keyvault.read_matter_file(file_path, matter_slug, db_path=catalog_db))
+        return _ingest_inner(doc_id, plain, matter_slug, db_path, catalog_db, on_stage)
+    except keyvault.KeyDestroyedError as e:
+        catalog.update_document(doc_id, "failed", str(e), db_path=catalog_db)
+        return "failed"
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+        try:
+            scratch.parent.rmdir()  # drop .ingest_tmp itself once no doc is in flight
+        except OSError:
+            pass
+
+
+def _ingest_inner(doc_id, file_path, matter_slug, db_path, catalog_db, on_stage):
     def stage(name):
         if on_stage is not None:
             on_stage(name)
