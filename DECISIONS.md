@@ -646,6 +646,23 @@
   model pull the wizard previously told the user to type into a terminal); zero terminal
   commands remain in the happy path; the query/document path stays loopback-only. (D-58, D-63)
 
+- **D-65 — P2 packaging: frozen-launcher fix + one-command build kits; certificates are the
+  only missing input (2026-07-07).** (a) **Frozen-uvicorn bug FIXED:** a PyInstaller-frozen
+  launcher would have spawned ``sys.executable -m uvicorn`` — i.e., relaunched ITSELF — on both
+  platforms; when ``sys.frozen`` the server now runs in-process (``uvicorn.Server`` in a daemon
+  thread; nothing to orphan), unit-proven on a live port. (b) **Managed Ollama:** the launcher
+  starts ``ollama serve`` as a reaped child (flash-attention + keep_alive env, loopback-forced
+  bind) when none is running, preferring a SILENTLY BUNDLED binary inside the frozen app
+  (``resources/ollama``, fetched by the build script with ``BUNDLE_OLLAMA=1`` — MIT-licensed);
+  a user's own running Ollama is never touched. (c) **macOS kit:** ``desktop/build_macos.spec``
+  (.app bundle) + ``desktop/build_macos.sh`` (one command: bundle -> sign w/ hardened runtime +
+  ``desktop/entitlements.plist`` -> DMG -> notarize -> staple), producing an UNSIGNED testing
+  DMG when cert env vars are absent. (d) **Blocked on purchases only:** Apple Developer
+  Program + Developer ID cert + notarytool profile (macOS), Azure Trusted Signing or OV cert
+  (Windows) — exact owner checklist in ``desktop/SIGNING.md``; Windows build still runs on the
+  owner's Windows box (PyInstaller does not cross-compile). Site claims stay honest until an
+  artifact actually ships (D-62 accuracy ethos). (D-58, D-60, D-61)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal

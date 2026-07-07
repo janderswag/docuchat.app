@@ -3,6 +3,9 @@
 Wraps the EXISTING FastAPI app (pipeline/api.py) — it does not touch the pipeline or the
 citation verifier. It:
   1. pre-kills anything stuck on the port (so a stale server can't block launch),
+  1b. starts ``ollama serve`` as a managed child if nothing is on 11434 and the binary is
+     installed (P0.2 warm env: OLLAMA_FLASH_ATTENTION=1 + keep_alive; loopback-forced);
+     a user's own running Ollama is never touched,
   2. starts the FastAPI server as a CHILD process (handle held for clean shutdown),
   3. health-checks 127.0.0.1:8000,
   4. opens the first-run wizard (/setup, which drops into /app when ready) in a pywebview
@@ -23,6 +26,7 @@ The pywebview import is deferred into main() so the helpers are importable/testa
 
 import atexit
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -34,6 +38,20 @@ from pathlib import Path
 HOST = "127.0.0.1"          # loopback only — never 0.0.0.0
 DEFAULT_PORT = 8000
 PIPELINE_DIR = Path(__file__).resolve().parent.parent / "pipeline"
+
+OLLAMA_PORT = 11434
+# Inference-speed env for an Ollama WE start (P0.2): flash attention + a server-side
+# keep_alive matching the app's request-side value (answering.KEEP_ALIVE). A user's own
+# already-running Ollama is never touched or restarted.
+OLLAMA_ENV = {"OLLAMA_FLASH_ATTENTION": "1", "OLLAMA_KEEP_ALIVE": "30m"}
+# Common install locations when the binary isn't on PATH (macOS app bundle CLI,
+# Homebrew, Windows per-user install).
+_OLLAMA_FALLBACKS = (
+    "/Applications/Ollama.app/Contents/Resources/ollama",
+    "/opt/homebrew/bin/ollama",
+    "/usr/local/bin/ollama",
+    str(Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ollama" / "ollama.exe"),
+)
 
 # Windows-only Popen flag (absent on POSIX); 0 is a no-op elsewhere.
 _CREATE_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -116,6 +134,25 @@ def free_port(port):
     return len(pids)
 
 
+def start_server_frozen(host=HOST, port=DEFAULT_PORT):
+    """FROZEN build (PyInstaller) path: run uvicorn IN-PROCESS in a daemon thread.
+
+    In a frozen app ``sys.executable`` is the app binary itself, so the subprocess form
+    (``sys.executable -m uvicorn``) would relaunch the LAUNCHER recursively instead of
+    python — the packaged app would never come up (P2.7 bug). In-process there is no
+    child to orphan: the server thread dies with the process. Returns the uvicorn
+    Server; the caller may set ``.should_exit = True`` for a graceful stop."""
+    import threading
+
+    sys.path.insert(0, str(PIPELINE_DIR))
+    import uvicorn
+    from api import app
+    server = uvicorn.Server(uvicorn.Config(app, host=host, port=port,
+                                           log_level="warning"))
+    threading.Thread(target=server.run, name="uvicorn-inproc", daemon=True).start()
+    return server
+
+
 def start_server(host=HOST, port=DEFAULT_PORT):
     """Start the FastAPI app as a child uvicorn process (loopback only); return the Popen.
     The caller MUST stop_server() it on exit (handle held — no orphaned server).
@@ -135,6 +172,53 @@ def start_server(host=HOST, port=DEFAULT_PORT):
         cwd=str(PIPELINE_DIR),
         **kwargs,
     )
+
+
+def find_ollama():
+    """Path to the ollama binary: a SILENTLY BUNDLED copy first (P2.7 interim — shipped
+    inside the frozen app so the user never installs Ollama by hand), then PATH, then
+    the common install spots. None if absent — the setup wizard then guides the user."""
+    if getattr(sys, "frozen", False):
+        exe_name = "ollama.exe" if _is_windows() else "ollama"
+        bundled = Path(sys.executable).resolve().parent / "resources" / exe_name
+        if bundled.is_file():
+            return str(bundled)
+    exe = shutil.which("ollama")
+    if exe:
+        return exe
+    for cand in _OLLAMA_FALLBACKS:
+        if cand and Path(cand).is_file():
+            return cand
+    return None
+
+
+def ensure_ollama():
+    """Start ``ollama serve`` as a managed child when nothing is serving on the Ollama
+    port and the binary is installed, with the P0.2 speed env (flash attention +
+    keep_alive) and a FORCED loopback bind. Returns the Popen (caller reaps it on quit)
+    or None (already running, or not installed). A user's own running Ollama — where we
+    cannot set env — is left alone; the app's request-side keep_alive still applies."""
+    if port_in_use(OLLAMA_PORT):
+        return None
+    exe = find_ollama()
+    if exe is None:
+        return None
+    env = dict(os.environ)
+    env.update(OLLAMA_ENV)
+    env["OLLAMA_HOST"] = f"{HOST}:{OLLAMA_PORT}"   # loopback only — never 0.0.0.0
+    kwargs = {}
+    if _is_windows():
+        kwargs["creationflags"] = _CREATE_NEW_PROCESS_GROUP
+    else:
+        kwargs["start_new_session"] = True
+    proc = subprocess.Popen([exe, "serve"], env=env,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            **kwargs)
+    for _ in range(50):                            # wait briefly so the app's startup
+        if port_in_use(OLLAMA_PORT):               # preload finds a live server
+            break
+        time.sleep(0.1)
+    return proc
 
 
 def wait_healthy(port=DEFAULT_PORT, host=HOST, timeout=40.0):
@@ -192,16 +276,20 @@ def stop_server(proc, timeout=8.0):
             pass
 
 
-def install_cleanup(proc):
-    """Guarantee the child server is reaped however the launcher exits — window close
-    (main's finally), normal exit (atexit), OR a hard kill via SIGTERM/SIGINT (handlers).
-    This closes the D-59 yellow: a killed launcher can no longer orphan uvicorn on port
-    8000. (An uncatchable kill — POSIX SIGKILL / Windows ``taskkill /F`` of the launcher —
-    is self-healed by free_port() on the next launch.)"""
-    atexit.register(stop_server, proc)
+def install_cleanup(*procs):
+    """Guarantee the child processes (server + any Ollama we started) are reaped however
+    the launcher exits — window close (main's finally), normal exit (atexit), OR a hard
+    kill via SIGTERM/SIGINT (handlers). This closes the D-59 yellow: a killed launcher
+    can no longer orphan uvicorn on port 8000. (An uncatchable kill — POSIX SIGKILL /
+    Windows ``taskkill /F`` of the launcher — is self-healed by free_port() on the next
+    launch.)"""
+    procs = [p for p in procs if p is not None]
+    for p in procs:
+        atexit.register(stop_server, p)
 
     def _handler(signum, _frame):
-        stop_server(proc)
+        for p in procs:
+            stop_server(p)
         # re-raise the default disposition so the exit status reflects the signal
         try:
             signal.signal(signum, signal.SIG_DFL)
@@ -223,12 +311,21 @@ def install_cleanup(proc):
 
 
 def main(port=DEFAULT_PORT):
+    frozen = bool(getattr(sys, "frozen", False))
     free_port(port)                       # pre-kill a stale server holding the port
-    proc = start_server(port=port)
-    install_cleanup(proc)                 # reap the child on window-close, exit, OR kill
+    ollama_proc = ensure_ollama()         # start Ollama (warm env) if it isn't running
+    server = proc = None
+    if frozen:                            # packaged app: in-process server (P2.7)
+        server = start_server_frozen(port=port)
+    else:
+        proc = start_server(port=port)
+    install_cleanup(proc, ollama_proc)    # reap the children on window-close, exit, OR kill
     try:
         if not wait_healthy(port=port):
+            if server is not None:
+                server.should_exit = True
             stop_server(proc)
+            stop_server(ollama_proc)
             print("Server did not become healthy on "
                   f"http://{HOST}:{port}", file=sys.stderr)
             return 1
@@ -241,7 +338,10 @@ def main(port=DEFAULT_PORT):
         webview.start()                   # blocks until the window is closed
         return 0
     finally:
-        stop_server(proc)                 # kill the child server on quit (no orphan)
+        if server is not None:            # in-process: graceful stop; thread is a daemon
+            server.should_exit = True
+        stop_server(proc)                 # kill the children on quit (no orphans)
+        stop_server(ollama_proc)
 
 
 if __name__ == "__main__":

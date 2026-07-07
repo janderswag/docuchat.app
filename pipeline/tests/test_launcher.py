@@ -16,6 +16,7 @@ import time
 import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DESKTOP = REPO_ROOT / "desktop"
@@ -24,6 +25,7 @@ import launcher  # noqa: E402  (module under test)
 
 PORT = 8771  # a high, unlikely-used port (NOT the app's 8000)
 PORT2 = 8772  # a second port for the signal-cleanup driver
+PORT3 = 8773  # a third port for the frozen in-process server
 
 
 def _wait_released(port, timeout=10.0):
@@ -59,6 +61,60 @@ class TestLauncherLifecycle(unittest.TestCase):
             self.assertTrue(_wait_released(PORT), "free_port left the port held")
         finally:
             launcher.stop_server(proc)
+
+
+class TestEnsureOllama(unittest.TestCase):
+    """P0.2 — the launcher starts a managed ``ollama serve`` (flash-attention + keep_alive
+    env, loopback-forced) ONLY when nothing is on the Ollama port and the binary exists."""
+
+    def test_noop_when_ollama_already_running(self):
+        # A user's own Ollama must never be touched (we can't set env on it anyway).
+        with patch.object(launcher, "port_in_use", return_value=True), \
+             patch.object(launcher.subprocess, "Popen") as popen:
+            self.assertIsNone(launcher.ensure_ollama())
+            popen.assert_not_called()
+
+    def test_noop_when_binary_missing(self):
+        with patch.object(launcher, "port_in_use", return_value=False), \
+             patch.object(launcher, "find_ollama", return_value=None), \
+             patch.object(launcher.subprocess, "Popen") as popen:
+            self.assertIsNone(launcher.ensure_ollama())
+            popen.assert_not_called()
+
+    def test_spawns_with_speed_env_and_loopback_bind(self):
+        calls = {}
+        def fake_popen(cmd, **kwargs):
+            calls["cmd"], calls["kwargs"] = cmd, kwargs
+            return "PROC"
+        # port free at spawn, then "up" so the readiness poll returns immediately
+        port_states = iter([False, True])
+        with patch.object(launcher, "port_in_use",
+                          side_effect=lambda *a, **k: next(port_states, True)), \
+             patch.object(launcher, "find_ollama", return_value="/fake/ollama"), \
+             patch.object(launcher.subprocess, "Popen", side_effect=fake_popen):
+            self.assertEqual(launcher.ensure_ollama(), "PROC")
+        self.assertEqual(calls["cmd"], ["/fake/ollama", "serve"])
+        env = calls["kwargs"]["env"]
+        self.assertEqual(env["OLLAMA_FLASH_ATTENTION"], "1")
+        self.assertEqual(env["OLLAMA_KEEP_ALIVE"], launcher.OLLAMA_ENV["OLLAMA_KEEP_ALIVE"])
+        self.assertEqual(env["OLLAMA_HOST"], "127.0.0.1:11434")  # loopback only, forced
+
+    def test_stop_server_none_is_safe(self):
+        launcher.stop_server(None)  # ensure_ollama() may return None — cleanup must accept it
+
+
+class TestFrozenInProcessServer(unittest.TestCase):
+    def test_inprocess_server_serves_health_and_stops(self):
+        # P2.7: a PyInstaller-frozen app must NOT spawn `sys.executable -m uvicorn`
+        # (that relaunches the app binary itself). The frozen path runs uvicorn
+        # in-process; prove it serves /health and stops on should_exit.
+        server = launcher.start_server_frozen(port=PORT3)
+        try:
+            self.assertTrue(launcher.wait_healthy(port=PORT3, timeout=30),
+                            "in-process server never became healthy")
+        finally:
+            server.should_exit = True
+        self.assertTrue(_wait_released(PORT3), "in-process server did not stop")
 
 
 # A standalone launcher driver: starts the server, installs the signal cleanup, reports

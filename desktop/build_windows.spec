@@ -38,7 +38,10 @@ for pkg in (
         pass  # package not importable at spec time — owner resolves on Windows
 
 hiddenimports += collect_submodules("uvicorn")
-hiddenimports += ["api"]  # the FastAPI app module lives at pipeline/api.py (on pathex below)
+# api lives at pipeline/api.py (on pathex below); launcher imports it lazily (frozen
+# in-process path), and api/routes_matters import sample_matter inside functions -
+# static analysis misses all three.
+hiddenimports += ["api", "sample_matter"]
 
 # Ship the pipeline's static UI + JSON data next to the exe.
 for rel in ("static", "data"):
