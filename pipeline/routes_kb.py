@@ -50,7 +50,9 @@ def _within_kb(path):
 
 
 @router.post("/kb/upload")
-async def upload(request: Request, matter: str, filename: str):
+async def upload(request: Request, matter: str, filename: str, doc_type: str = "document"):
+    if doc_type not in ("document", "transcript"):
+        raise HTTPException(status_code=400, detail=f"unknown doc_type: {doc_type!r}")
     if not catalog.get_matter(matter):
         raise HTTPException(status_code=400, detail=f"unknown matter: {matter!r}")
     name = _safe_name(filename)
@@ -77,7 +79,8 @@ async def upload(request: Request, matter: str, filename: str):
     # Move 0b (D-68): enqueue to the single serialized ingest worker — uploads return
     # instantly and NEVER occupy the request thread pool (a bulk upload previously ran
     # up to 40 concurrent sync ingests there, starving /chat for hours).
-    doc = catalog.add_document(matter, dest, filename=dest.name, status="queued")
+    doc = catalog.add_document(matter, dest, filename=dest.name, status="queued",
+                               doc_type=doc_type)
     ingest_worker.enqueue(doc["id"], str(dest), matter, str(KB_DB), catalog.DEFAULT_DB)
     return doc
 

@@ -142,10 +142,14 @@
     catch (e) { docs = []; }
     tbody.innerHTML = docs.length ? docs.map(function (d) {
       var size = d.size_bytes != null ? Math.max(1, Math.round(d.size_bytes / 1024)) + " KB" : "—";
-      return "<tr><td>" + esc(d.filename) + "</td><td class='muted'>" + esc(d.matter_slug) +
+      var digestBtn = (d.doc_type === "transcript" && d.status === "ready")
+        ? "<button class='btn secondary' data-digest-doc='" + d.id + "'>digest</button> " : "";
+      var kind = d.doc_type === "transcript" ? " <span class='muted'>(transcript)</span>" : "";
+      return "<tr><td>" + esc(d.filename) + kind + "</td><td class='muted'>" + esc(d.matter_slug) +
         "</td><td>" + size + "</td><td><span class='status " + esc(d.status) + "'>" +
         esc(d.status) + "</span></td><td class='muted'>" + esc((d.updated || "").replace("T", " ")) +
         "</td><td><button class='btn secondary' data-view-doc='" + d.id + "'>view</button> " +
+        digestBtn +
         "<button class='btn secondary' data-del-doc='" + d.id + "'>delete</button></td></tr>";
     }).join("") : "<tr><td colspan='6' class='muted'>No documents yet — drop files above.</td></tr>";
 
@@ -159,6 +163,65 @@
         refreshHubTable();
       };
     });
+    tbody.querySelectorAll("[data-digest-doc]").forEach(function (b) {
+      b.onclick = function () { runDigest(b.dataset.digestDoc); };
+    });
+  }
+
+  // Deposition digest (Move 2d): every bullet shown was mechanically verified against
+  // the transcript; unverified bullets are counted and dropped, never displayed.
+  async function runDigest(docId) {
+    var out = document.getElementById("hub-digest");
+    if (!out) return;
+    out.innerHTML = "<div class='panel'><b>Deposition digest</b> <span class='muted' id='digest-status'>starting…</span><div id='digest-body'></div></div>";
+    var status = document.getElementById("digest-status");
+    var bodyEl = document.getElementById("digest-body");
+    try {
+      var resp = await fetch("/transcripts/" + docId + "/digest", { method: "POST" });
+      if (!resp.ok) {
+        var d = null; try { d = await resp.json(); } catch (e) {}
+        throw new Error((d && d.detail) || ("HTTP " + resp.status));
+      }
+      var reader = resp.body.getReader(), dec = new TextDecoder(), buf = "", done = null, meta = null;
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        var parts = buf.split("\n\n"); buf = parts.pop();
+        parts.forEach(function (blk) {
+          var msg = parseSseBlock(blk);
+          if (!msg) return;
+          if (msg.event === "meta") { meta = msg.data; status.textContent = meta.pages + " pages, " + meta.batches + " passes…"; }
+          else if (msg.event === "batch") status.textContent = "pass " + msg.data.batch + " of " + msg.data.of + (msg.data.verified != null ? " — " + msg.data.verified + " verified" : "");
+          else if (msg.event === "done") done = msg.data;
+        });
+      }
+      if (!done) throw new Error("digest stream ended unexpectedly");
+      status.textContent = done.coverage + " · " + done.stats.bullets_verified +
+        " verified quotes" + (done.stats.bullets_rejected_unverified
+          ? " · " + done.stats.bullets_rejected_unverified + " unverified dropped" : "");
+      var html = done.topics.map(function (t) {
+        return "<h3 style='margin:10px 0 4px'>" + esc(t.topic) + "</h3><ul>" +
+          t.bullets.map(function (bl) {
+            var cite = esc(bl.filename) + " p." + esc(bl.page) + (bl.lines ? ":" + esc(bl.lines) : "");
+            return "<li>" + esc(bl.text) + " <span class='src-chip'>" + cite + "</span></li>";
+          }).join("") + "</ul>";
+      }).join("");
+      html += "<button class='btn' id='digest-docx' style='margin-top:10px'>Download Word digest</button>";
+      bodyEl.innerHTML = html;
+      document.getElementById("digest-docx").onclick = async function () {
+        var r = await fetch("/transcripts/digest.docx", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(done),
+        });
+        var blob = await r.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = "digest-" + (done.filename || "transcript") + ".docx";
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      };
+    } catch (e) { bodyEl.innerHTML = "<span style='color:var(--err)'>" + esc(e.message) + "</span>"; }
   }
   window.onMatterChange = function () { refreshHubTable(); };
 
@@ -166,11 +229,13 @@
     var err = document.getElementById("hub-err");
     if (err) err.textContent = "";
     if (!state.matter) { if (err) err.textContent = "Create a matter first (Matters view), then upload."; return; }
+    var isTranscript = !!(document.getElementById("upload-transcript") || {}).checked;
     for (var i = 0; i < files.length; i++) {
       var f = files[i];
       try {
         await fetch("/kb/upload?matter=" + encodeURIComponent(state.matter) +
-                    "&filename=" + encodeURIComponent(f.name), { method: "POST", body: f })
+                    "&filename=" + encodeURIComponent(f.name) +
+                    (isTranscript ? "&doc_type=transcript" : ""), { method: "POST", body: f })
           .then(function (r) { if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail); }); });
       } catch (e) { if (err) err.textContent = e.message; }
     }
@@ -186,10 +251,14 @@
       "<div id='dropzone' class='panel' style='border:2px dashed var(--border);text-align:center;padding:28px;cursor:pointer'>" +
       "Drag &amp; drop files here, or click to choose. <span class='muted'>(.pdf .docx .txt .md)</span>" +
       "<input type='file' id='file-input' multiple style='display:none'></div>" +
+      "<label class='muted' style='display:block;font-size:13px;margin:2px 0 8px'>" +
+      "<input type='checkbox' id='upload-transcript'> These are deposition/hearing transcripts " +
+      "(numbered lines — answers get page:line citations)</label>" +
       "<div id='hub-err' style='color:var(--err);font-size:13px'></div>" +
       "<div id='hub-ingest-status' class='muted' style='font-size:13px'></div>" +
       "<div class='panel'><table><thead><tr><th>Name</th><th>Matter</th><th>Size</th>" +
-      "<th>Status</th><th>Updated</th><th></th></tr></thead><tbody id='hub-rows'></tbody></table></div>";
+      "<th>Status</th><th>Updated</th><th></th></tr></thead><tbody id='hub-rows'></tbody></table></div>" +
+      "<div id='hub-digest'></div>";
 
     fillMatterPickers().catch(function () {});
     document.getElementById("hub-matter").addEventListener("change", function (e) {
@@ -268,9 +337,10 @@
       for (var i = 0; i < cites.length; i++) {
         if (cites[i].filename === fn && String(cites[i].page) === pg) {
           var c = cites[i];
+          var tip = esc(fn) + " p." + esc(pg) + (c.lines ? ":" + esc(c.lines) : "");
           if (c.doc_id == null) return " <span class='src-chip'>[" + (i + 1) + "]</span>";
           return " <a class='src-chip' target='_blank' href='" + highlightUrl(c) +
-            "' title='" + esc(fn) + " p." + esc(pg) + "'>[" + (i + 1) + "]</a>";
+            "' title='" + tip + "'>[" + (i + 1) + "]</a>";
         }
       }
       return "";
@@ -282,7 +352,10 @@
     var safe = injectChips(esc(body.answer_text || ""), cites);
     var thumbs = cites.map(citationThumb).join("");
     var sources = cites.map(function (c, i) {
-      var label = "[" + (i + 1) + "] " + esc(c.filename) + " — p." + esc(c.page);
+      // c.lines (transcripts, D-70): derived from VERIFIED span offsets via the line
+      // map — court-citation format p.45:12-18. Absent = page-only citation.
+      var pageLabel = "p." + esc(c.page) + (c.lines ? ":" + esc(c.lines) : "");
+      var label = "[" + (i + 1) + "] " + esc(c.filename) + " — " + pageLabel;
       return c.doc_id != null
         ? "<li><a class='src-chip' target='_blank' href='" + highlightUrl(c) + "'>" + label + "</a></li>"
         : "<li>" + label + "</li>";

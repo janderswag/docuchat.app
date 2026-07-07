@@ -98,6 +98,16 @@ def ingest_document(doc_id, file_path, matter_slug, db_path, catalog_db=None,
 
     file_path = Path(file_path)
     filename = file_path.name
+
+    # Move 2a (D-70): user-designated transcripts take the line-aware path — clean
+    # gutter-stripped page text, a line map saved to the catalog, one chunk per page.
+    # A condensed 4-up transcript FAILS LOUD (a confidently wrong page:line is worse
+    # than no ingest). The prose path below is unchanged.
+    row = catalog.get_document(doc_id, db_path=catalog_db)
+    if row and row.get("doc_type") == "transcript":
+        return _ingest_transcript(doc_id, file_path, matter_slug, db_path,
+                                  catalog_db, stage)
+
     stage("extract")
     try:
         pages = extract(file_path)
@@ -134,6 +144,56 @@ def ingest_document(doc_id, file_path, matter_slug, db_path, catalog_db=None,
     elif needs_review:
         status = "needs_review"
         reason = "low-confidence OCR on one or more pages"
+    else:
+        status, reason = "ready", None
+    catalog.update_document(doc_id, status, reason, db_path=catalog_db)
+    return status
+
+
+def _ingest_transcript(doc_id, file_path, matter_slug, db_path, catalog_db, stage):
+    """Move 2a (D-70): the transcript ingest path. Extract with the numbered-gutter
+    parser (PDF) or ASCII page/line parser (.txt), persist the line map, chunk one page
+    per chunk. Line maps index the CLEAN page text — the same text chunks carry — so
+    verified span offsets map straight to line ranges at citation time."""
+    import transcript_extract as te
+
+    stage("extract")
+    suffix = file_path.suffix.lower()
+    try:
+        if suffix == ".pdf":
+            pages = te.extract_transcript_pdf(file_path)
+        elif suffix in (".txt", ".md"):
+            pages = te.extract_transcript_txt(file_path)
+        else:
+            raise ValueError(f"transcripts must be .pdf or .txt (got {suffix}); "
+                             "export E-Transcript (.ptx) to PDF or ASCII first")
+    except te.CondensedTranscriptError as e:
+        catalog.update_document(doc_id, "failed", str(e), db_path=catalog_db)
+        return "failed"
+    except Exception as e:
+        catalog.update_document(doc_id, "failed", f"{type(e).__name__}: {e}",
+                                db_path=catalog_db)
+        return "failed"
+
+    entries = [(pno, ln, s, e)
+               for pno, _clean, line_entries in pages if line_entries
+               for ln, s, e in line_entries]
+    numbered_pages = sum(1 for _p, _c, le in pages if le)
+    chunks = te.chunk_transcript_pages(pages, matter_slug, file_path.name)
+
+    stage("embed_write")
+    delete_doc(db_path, file_path.name, matter_slug)
+    add_chunks(chunks, db_path)
+    catalog.save_line_map(doc_id, entries, db_path=catalog_db)
+
+    if not chunks:
+        status, reason = "failed", "no extractable text"
+    elif numbered_pages == 0:
+        # ingested fine, but nothing looked like a numbered transcript page — honest
+        # signal that page:line citations will not be available for this file
+        status = "needs_review"
+        reason = ("no numbered transcript lines detected - indexed as plain pages "
+                  "(page-level citations only)")
     else:
         status, reason = "ready", None
     catalog.update_document(doc_id, status, reason, db_path=catalog_db)

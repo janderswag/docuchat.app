@@ -115,6 +115,10 @@ class TestSafetyStructural(unittest.TestCase):
                           # matter-pre-filtered, no generation - zero hallucination
                           # surface; truncation always labeled.
                           "/search",
+                          # Transcripts (Move 2d): map-reduce digest where only
+                          # verifier-confirmed bullets survive, + Word export of a
+                          # digest the user already received. No new trust surface.
+                          "/transcripts/{doc_id}/digest", "/transcripts/digest.docx",
                           "/chat", "/chat/stream", "/chat/threads", "/chat/threads/{thread_id}",
                           "/kb/thumb/{doc_id}", "/kb/highlight/{doc_id}",
                           "/clauses/taxonomy", "/clauses/review",

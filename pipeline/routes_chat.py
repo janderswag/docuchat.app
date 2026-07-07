@@ -54,9 +54,8 @@ def chat(body: ChatRequest):
     # Enrich each chunk-derived citation with its catalog doc_id so the UI can request
     # the page thumbnail + cited-span highlight. doc_id is looked up by (matter, filename)
     # — the displayed page/span stay chunk-derived (D-38); we add no model-asserted data.
-    by_name = {d["filename"]: d["id"] for d in catalog.list_documents(body.matter)}
-    for c in res["citations"]:
-        c["doc_id"] = by_name.get(c["filename"])
+    _enrich_doc_ids(body.matter, res["citations"])
+    _enrich_transcript_lines(body.matter, res["citations"], res.get("grounding_chunks"))
 
     catalog.add_message(thread_id, "assistant", res["answer_text"],
                         json.dumps(res["citations"]))
@@ -68,6 +67,28 @@ def _enrich_doc_ids(matter, citations):
     by_name = {d["filename"]: d["id"] for d in catalog.list_documents(matter)}
     for c in citations:
         c["doc_id"] = by_name.get(c["filename"])
+
+
+def _enrich_transcript_lines(matter, citations, grounding):
+    """Move 2a (D-70): derive page:line for citations into transcript documents by
+    mapping the VERIFIER-CONFIRMED span offsets through the stored line map. The model
+    never asserts a line number; an ambiguous span (text occurring more than once on
+    the page) gets NO line range — precise or absent. Display metadata only: page/span
+    provenance stays chunk-derived and mechanically verified."""
+    import transcript_extract as te
+    docs = {d["filename"]: d for d in catalog.list_documents(matter)}
+    page_text = {(g["source_filename"], g["page_number"]): g["text"]
+                 for g in grounding or []}
+    for c in citations:
+        d = docs.get(c["filename"])
+        if not d or d.get("doc_type") != "transcript" or c.get("char_start") is None:
+            continue
+        entries = catalog.line_map_for_page(d["id"], c["page"])
+        lines = te.derive_lines(entries, c["char_start"], c["char_end"],
+                                page_text.get((c["filename"], c["page"]), ""),
+                                c.get("span", ""))
+        if lines:
+            c["lines"] = lines
 
 
 @router.post("/chat/stream")
@@ -112,6 +133,8 @@ def chat_stream(body: ChatRequest):
             result = {"answer_text": REFUSAL, "citations": [], "rejected_claims": []}
         activity.mark_chat()    # re-mark at completion: quiet window starts now
         _enrich_doc_ids(body.matter, result["citations"])
+        _enrich_transcript_lines(body.matter, result["citations"],
+                                 result.get("grounding_chunks"))
         catalog.add_message(thread_id, "assistant", result["answer_text"],
                             json.dumps(result["citations"]))
         catalog.touch_thread(thread_id)

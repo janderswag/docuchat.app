@@ -752,6 +752,32 @@
   alt-page) — the second pass RECOVERED F-026, the false refusal open since D-40; NF 9/9
   still refuse; 0 fabrications; 0 rejected claims.** 331 tests green. (D-66, D-67, D-68)
 
+- **D-70 — Move 2 executed: the transcript engine (2026-07-07).** T-TRANS un-deferred (D-56
+  trigger = owner roadmap adoption D-67), extended beyond the reserve design to ASCII .txt and
+  speaker metadata. (a) **Ingestion:** user-designated at upload (`doc_type=transcript`, never
+  auto-detected; catalog gains `doc_type` + a `transcript_lines` sidecar). PDF gutter parsing is
+  GEOMETRIC (words binned by baseline y) — survives producers that emit the line number and the
+  testimony as separate text objects, where plain-text extraction hides the gutter. ASCII pages
+  split on form-feed or "Page N" headers. Gutter stripped from chunk text (embeddings
+  de-polluted); line maps index the CLEAN page text, the same text chunks carry. (b) **Chunking:**
+  one chunk per transcript page (a Q is never split from its A within a page); speaker labels and
+  the prior page's tail ride in `embedding_text` ONLY — never citable text, and display never
+  attributes a quote to a parser-guessed speaker. (c) **THE TRUST RULE:** page:line citations are
+  DERIVED by mapping VERIFIER-CONFIRMED span offsets through the line map (verifier
+  byte-identical; D-38 extended page→page:line). Ambiguous spans (same text twice on a page,
+  the "Yes." trap) get NO line range — precise or absent. Condensed 4-up sheets FAIL LOUD at
+  ingest with a clear reason (a confidently wrong 45:12 is worse than no ingest). (d) **Digest
+  (2d):** POST /transcripts/{id}/digest — map-reduce over ALL pages (~10/batch, SSE progress),
+  each bullet INDIVIDUALLY re-verified against its batch grounding, unverified bullets dropped
+  and counted, the reduce step only groups/orders (generates no text), coverage stated ("built
+  from all N indexed pages" — the top-k silent-partiality failure is structurally excluded);
+  Word export as a Topic|Verbatim|Cite table (python-docx, already pinned in requirements).
+  E2E proven live: chat answer cites p.4:14 on a synthetic depo; digest surfaces the planted
+  fact with page:line; fabricated spans still yield zero citations. 345 tests green. Golden
+  gate not re-run for Move 2 itself: answering/verifier/retrieval untouched (additive routes +
+  ingest path only); the Move 1 gate (63/63) remains the standing baseline. (D-56, D-66, D-67,
+  D-69)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal

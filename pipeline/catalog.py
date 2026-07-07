@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS documents (
     updated TEXT NOT NULL,
     FOREIGN KEY (matter_slug) REFERENCES matters(slug)
 );
+CREATE TABLE IF NOT EXISTS transcript_lines (
+    doc_id INTEGER NOT NULL,
+    page INTEGER NOT NULL,
+    line INTEGER NOT NULL,
+    char_start INTEGER NOT NULL,
+    char_end INTEGER NOT NULL,
+    PRIMARY KEY (doc_id, page, line)
+);
 CREATE TABLE IF NOT EXISTS threads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     matter_slug TEXT NOT NULL,
@@ -63,6 +71,14 @@ def _connect(db_path=None):
     conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
+    # Idempotent migrations for pre-existing databases (CREATE TABLE IF NOT EXISTS
+    # doesn't alter existing tables). doc_type: 'document' | 'transcript' (T-TRANS/D-70,
+    # user-designated at upload — never auto-detected).
+    try:
+        conn.execute("ALTER TABLE documents ADD COLUMN doc_type TEXT NOT NULL DEFAULT 'document'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already present
     return conn
 
 
@@ -137,21 +153,60 @@ def _sha256(path):
     return h.hexdigest()
 
 
-def add_document(matter_slug, file_path, db_path=None, filename=None, status="parsing"):
-    """Insert a documents row (default status 'parsing'); returns the row dict."""
+def add_document(matter_slug, file_path, db_path=None, filename=None, status="parsing",
+                 doc_type="document"):
+    """Insert a documents row (default status 'parsing'); returns the row dict.
+    doc_type: 'document' or 'transcript' (user-designated at upload, D-70)."""
     file_path = Path(file_path)
     name = filename or file_path.name
     conn = _connect(db_path)
     try:
         cur = conn.execute(
             "INSERT INTO documents (matter_slug, filename, stored_path, checksum, size_bytes, "
-            "status, reason, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "status, reason, updated, doc_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (matter_slug, name, str(file_path), _sha256(file_path),
-             file_path.stat().st_size, status, None, _now()),
+             file_path.stat().st_size, status, None, _now(), doc_type),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM documents WHERE id = ?", (cur.lastrowid,)).fetchone()
         return dict(row)
+    finally:
+        conn.close()
+
+
+def save_line_map(doc_id, entries, db_path=None):
+    """Replace the transcript line map for a document. ``entries`` =
+    [(page, line, char_start, char_end)] with offsets into the CLEAN page text (the
+    same text chunks slice — so verified span offsets map straight through, D-70)."""
+    conn = _connect(db_path)
+    try:
+        conn.execute("DELETE FROM transcript_lines WHERE doc_id = ?", (doc_id,))
+        conn.executemany(
+            "INSERT INTO transcript_lines (doc_id, page, line, char_start, char_end) "
+            "VALUES (?, ?, ?, ?, ?)",
+            [(doc_id, p, l, s, e) for p, l, s, e in entries])
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def line_map_for_page(doc_id, page, db_path=None):
+    """Ordered [(line, char_start, char_end)] for one transcript page ([] if none)."""
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT line, char_start, char_end FROM transcript_lines "
+            "WHERE doc_id = ? AND page = ? ORDER BY line", (doc_id, page)).fetchall()
+        return [(r["line"], r["char_start"], r["char_end"]) for r in rows]
+    finally:
+        conn.close()
+
+
+def delete_line_map(doc_id, db_path=None):
+    conn = _connect(db_path)
+    try:
+        conn.execute("DELETE FROM transcript_lines WHERE doc_id = ?", (doc_id,))
+        conn.commit()
     finally:
         conn.close()
 
