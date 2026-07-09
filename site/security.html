@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security and data flow - docuchat.app</title>
+  <meta name="description" content="Exactly where your documents go (nowhere), every network call docuchat makes, what verified means and does not mean, and how to check all of it yourself.">
+  <link rel="canonical" href="https://docuchat.app/security.html">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    .trust{max-width:760px;margin:0 auto;padding:48px 28px 80px}
+    .trust h1{font-family:"Fraunces",serif;font-size:34px;margin-bottom:6px}
+    .trust h2{font-family:"Fraunces",serif;font-size:22px;margin:34px 0 8px}
+    .trust p,.trust li{font-size:16.5px;line-height:1.65}
+    .trust table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px}
+    .trust th,.trust td{border:1px solid var(--rule);padding:8px 10px;text-align:left;vertical-align:top}
+    .trust code{font-family:"IBM Plex Mono",monospace;font-size:13.5px;background:rgba(14,34,64,.06);padding:1px 5px;border-radius:5px}
+    .trust .honest{border-left:3px solid var(--gold,#b48a4a);padding:10px 14px;background:rgba(180,138,74,.07);border-radius:0 8px 8px 0;margin:14px 0}
+  </style>
+</head>
+<body>
+  <header class="masthead">
+    <a class="wordmark" href="/" aria-label="docuchat.app home">
+      <span class="wordmark-text">docuchat<span class="tld">.app</span></span>
+    </a>
+  </header>
+  <main class="trust">
+    <h1>Security and data flow</h1>
+    <p class="muted">Written for the skeptical reader: your IT consultant, your malpractice carrier,
+      your client's outside counsel guidelines. Everything on this page is verifiable against the
+      <a href="https://github.com/janderswag/legal-document-chat" target="_blank" rel="noopener noreferrer">open source code</a>.</p>
+
+    <h2>Every network call the app makes</h2>
+    <table>
+      <tr><th>When</th><th>What</th><th>Contains</th></tr>
+      <tr><td>Setup, once, user-initiated</td><td>Model download through your local Ollama from the Ollama registry</td><td>No user data. The download is verified against pinned checksums.</td></tr>
+      <tr><td>Everything else</td><td>Nothing</td><td>The question-answering path, document storage, search, and OCR make no network calls. All services bind to 127.0.0.1 (this computer only). There is no telemetry, no crash reporting, no account, and no update phone-home.</td></tr>
+    </table>
+    <p>Verify it yourself: after setup, turn networking off entirely (airplane mode or pull the
+      cable). Upload a document, ask questions, run a digest. Everything keeps working, because
+      nothing needed the internet.</p>
+
+    <h2>What "verified" means, exactly</h2>
+    <p>Every quoted passage in an answer is checked, character for character, against the text of
+      the cited document before it is shown. A quote that does not appear in the source is rejected
+      by code, not by the AI grading itself. Citations point to the exact page and passage; for
+      transcripts, the page and line numbers are computed from the verified quote's position, never
+      guessed by the model.</p>
+    <div class="honest">
+      <p><b>What it does not mean.</b> Verified means the quote is really in your document. It does
+      not mean the statement is legally correct, current, or complete, and it does not mean the
+      answer found everything relevant. docuchat locates and summarizes what your documents say;
+      you verify legal conclusions yourself. It is not an AI lawyer and gives no legal advice.</p>
+    </div>
+
+    <h2>Where your data lives at rest</h2>
+    <p>Your documents, the search index, and your chat history live in files on your own disk under
+      your own user account, and they are encrypted. The search index sits inside an AES-256
+      encrypted volume that is unlocked only while the app runs. The app database is encrypted
+      with SQLCipher. Each matter's original documents are encrypted with that matter's own key.
+      All keys live in the macOS Keychain, never in a file. The app also excludes these stores
+      from Time Machine backups and Spotlight indexing so client text does not silently flow into
+      backups or system search.</p>
+    <p>Encryption makes deletion provable. When you dispose of a matter, the app destroys that
+      matter's encryption key, which makes its original documents unrecoverable even from old
+      copies, and issues a Certificate of Disposition stating the method in NIST SP 800-88 terms:
+      cryptographic erase (Purge) for the originals.</p>
+    <div class="honest">
+      <p><b>Honest status.</b> The certificate never claims more than what happened: derived
+      search data is deleted and compacted inside the encrypted volume, which NIST classifies as
+      Clear, not Purge, and the certificate says so. Documents added before encryption shipped
+      keep a Clear certificate unless re-imported. Keep FileVault on regardless; layered
+      protection is the point, and backups or snapshots made before disposition remain outside
+      the app's control.</p>
+    </div>
+
+    <h2>Hardening that ships today</h2>
+    <ul>
+      <li>All services bind to 127.0.0.1 only; the API rejects requests whose browser origin or
+        host header is not local, which blocks the known ways a malicious web page reaches
+        local services (DNS rebinding, cross-site requests).</li>
+      <li>The app refuses to start an Ollama version with known security vulnerabilities and
+        restricts which browser origins may talk to the Ollama it manages.</li>
+      <li>Model downloads are verified against pinned checksums after download.</li>
+      <li>The AI has no tools: it cannot browse, send email, file documents, or change anything.
+        It can only read the passages retrieved from your documents and write text, which is then
+        mechanically checked.</li>
+    </ul>
+
+    <h2>Reporting a vulnerability</h2>
+    <p>Please report security issues to the contact in
+      <a href="/.well-known/security.txt">security.txt</a>. We take reports seriously and will
+      credit finders who want credit.</p>
+
+    <p class="muted small" style="margin-top:34px">This page describes the software's behavior; it
+      is not a compliance certification or legal guarantee. Last updated July 2026.</p>
+  </main>
+</body>
+</html>
