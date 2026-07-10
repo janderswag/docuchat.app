@@ -15,7 +15,7 @@ from pydantic import BaseModel
 import activity
 import catalog
 import routes_kb  # for the shared KB_DB path (monkeypatchable in tests)
-from answering import answer, answer_stream, REFUSAL
+from answering import answer, answer_stream, small_talk_reply, REFUSAL
 
 router = APIRouter()
 
@@ -42,6 +42,16 @@ def chat(body: ChatRequest):
     if not thread_id:
         thread_id = catalog.create_thread(body.matter, body.question.strip())["id"]
     catalog.add_message(thread_id, "user", body.question)
+
+    # UX-1: a pure greeting/courtesy message gets a canned reply with NO retrieval —
+    # no embedding, no vector search, no passages shown for a question never asked.
+    canned = small_talk_reply(body.question)
+    if canned is not None:
+        catalog.add_message(thread_id, "assistant", canned, json.dumps([]))
+        catalog.touch_thread(thread_id)
+        return {"thread_id": thread_id, "answer_text": canned, "citations": [],
+                "rejected_claims": [], "grounding_chunks": [], "confidence": None,
+                "small_talk": True}
 
     activity.mark_chat()    # interactive priority: pause background ingest (Move 0b)
     try:
@@ -106,6 +116,19 @@ def chat_stream(body: ChatRequest):
 
     def event(name, obj):
         return f"event: {name}\ndata: {json.dumps(obj)}\n\n"
+
+    # UX-1: small talk streams the canned reply immediately — no retrieval, no
+    # 'sources' event (nothing is being read), empty citations on 'done'.
+    canned = small_talk_reply(body.question)
+    if canned is not None:
+        def gen_small_talk():
+            catalog.add_message(thread_id, "assistant", canned, json.dumps([]))
+            catalog.touch_thread(thread_id)
+            yield event("token", {"text": canned})
+            yield event("done", {"thread_id": thread_id, "answer_text": canned,
+                                 "citations": [], "rejected_claims": [],
+                                 "small_talk": True})
+        return StreamingResponse(gen_small_talk(), media_type="text/event-stream")
 
     def gen():
         result = None

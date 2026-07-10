@@ -25,6 +25,52 @@ from retrieval import retrieve
 
 REFUSAL = "I could not find this in the documents."
 
+# UX-1 small-talk gate: a greeting must never trigger retrieval. A citation-grounded
+# tool should never perform (or display) work it isn't doing — running embed+search on
+# "hello" both wastes latency and, worse, shows the user passages they never asked
+# about. The gate is deliberately conservative: it fires ONLY when the entire message,
+# after case/punctuation normalization, is one of the known greeting/courtesy/meta
+# phrases. Anything else (including every real document question) falls through to the
+# normal retrieve -> answer -> verify path, so a false negative costs nothing and a
+# false positive is designed out. The reply carries no citations and is honest that it
+# is not grounded in the documents.
+SMALL_TALK_REPLY = (
+    "Hello. Ask me anything about this matter's documents and I will answer with "
+    "page citations you can verify against the source. If the documents do not "
+    "contain the answer, I will say so rather than guess."
+)
+
+_SMALL_TALK_PHRASES = {
+    # greetings
+    "hi", "hello", "hey", "yo", "hiya", "howdy", "greetings", "hi there",
+    "hello there", "hey there", "good morning", "good afternoon", "good evening",
+    # presence / liveness checks
+    "are you there", "you there", "anyone there", "is anyone there",
+    "is this working", "is this on", "are you working", "are you on",
+    "are you alive", "test", "testing", "ping", "hello are you there",
+    "hi are you there",
+    # courtesy / acknowledgements
+    "thanks", "thank you", "thank you very much", "thanks a lot", "ty", "thx",
+    "ok", "okay", "cool", "great", "good", "nice", "perfect", "got it",
+    # identity / capability
+    "who are you", "what are you", "what can you do", "what do you do", "help",
+    "how are you", "how are you doing", "whats up", "sup", "how does this work",
+    "what is this",
+}
+
+
+def small_talk_reply(question):
+    """Return the canned no-retrieval reply when the WHOLE message is small talk,
+    else None. Whole-message match only: a message that merely starts with a
+    greeting but continues into a question is NOT small talk."""
+    q = (question or "").strip().lower()
+    q = q.replace("’", "'").replace("'", "")   # what's -> whats
+    q = re.sub(r"[.,!?;:]+", " ", q)                # drop punctuation, keep words
+    q = re.sub(r"\s+", " ", q).strip()
+    if not q or len(q) > 40:
+        return None
+    return SMALL_TALK_REPLY if q in _SMALL_TALK_PHRASES else None
+
 # P0 speed levers (owner-approved 2026-07-06 session): keep the model warm across
 # queries and size the KV cache to the real 5-chunk grounded prompt instead of the
 # Ollama default. KEEP_ALIVE holds weights resident between questions so the first
