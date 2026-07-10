@@ -82,7 +82,16 @@ def create_connection(body: NewConnection):
                             detail=f"missing credential field(s): {', '.join(sorted(missing))}")
     if body.matter != "unfiled" and not catalog.get_matter(body.matter):
         raise HTTPException(status_code=400, detail=f"unknown matter: {body.matter!r}")
-    label = _run_test(mod, body.credentials)          # never store an untested key
+    creds = body.credentials
+    if hasattr(mod, "prepare"):
+        # one-time credential exchange (e.g. a short-lived grant code -> a durable
+        # refresh token); the PREPARED credentials are what get tested + sealed
+        try:
+            creds = mod.prepare(creds)
+        except connectors.ConnectorError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        body.credentials = creds
+    label = _run_test(mod, creds)                     # never store an untested key
     sealed = keyvault.encrypt_secret(
         json.dumps(body.credentials).encode("utf-8"))
     return catalog.add_connection(body.service, sealed, label=label,
