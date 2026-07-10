@@ -45,10 +45,11 @@ class MockVendor:
         self._orig = connectors.request
 
         def fake(method, url, *, headers=None, params=None, json_body=None,
-                 timeout=None, auth=None, follow_redirects=True):
+                 form_body=None, timeout=None, auth=None, follow_redirects=True):
             self.calls.append({"method": method, "url": url,
                                "headers": headers or {}, "params": params or {},
-                               "json_body": json_body, "auth": auth})
+                               "json_body": json_body, "form_body": form_body,
+                               "auth": auth})
             for m, prefix, resp in self.routes:
                 if m == method and url.startswith(prefix):
                     r = resp(self.calls[-1]) if callable(resp) else resp

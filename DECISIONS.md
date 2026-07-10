@@ -995,6 +995,35 @@
   .pdf/.docx/.txt/.md/.eml. Queued (need deps or models): .msg, .mbox, .rtf, .xlsx, .zip,
   and audio/video via local transcription. (D-76, D-77, D-78)
 
+- **D-81 — v0.3.0: LIVE user-keyed connectors; the catalog lists only what a user can
+  actually connect (owner-directed, 2026-07-10).** Every one of the 65 catalog entries was
+  re-verified against the vendor's CURRENT API docs by a deep-research pass (owner action
+  list in docs/2026-07-10-connector-registrations.md). The owner's rule, now binding: a
+  connector appears in the catalog ONLY if documents can actually flow into the Document
+  Hub — **28 went LIVE** (self-serve credential: API key / PAT / app password / self-
+  created app: 14 notetaker+transcription services, Zoom S2S + Webex, Notion/Confluence/
+  Airtable/Coda/ClickUp/monday/Asana, Gmail-IMAP + Slack, Nextcloud + ShareFile, HubSpot/
+  Zoho/Pipedrive), **20 stay Planned** (real pull path but needs a docuchat-registered
+  developer app: Google/Microsoft suites, Clio Manage, Read AI — whose API turned out
+  OAuth-2.1-only, reversing the old "no registration gate" note), and **17 were DELETED**
+  (no user-reachable pull path: partner/enterprise-gated, webhook-only, Evernote's
+  suspended API, Filevine's zeroed download endpoints, Otter/Gong/Clari admin-or-
+  enterprise-only). Mechanism: connections table with keyvault-sealed credentials
+  (AES-GCM under the Keychain master key, distinct AAD), keys TESTED before storage,
+  imports through the SAME path as manual upload (DEK-encrypted managed copy, provenance
+  in documents.source_json, dedupe by (connection, source id)), optional sync on the
+  watcher tick, disconnect deletes the ciphertext (the D-80 contract, honored). Egress
+  posture extended from D-78's one fenced call: user-initiated connector calls + the
+  user-clicked update download; the answer path still makes zero calls; site security
+  copy updated to say exactly this. Also in v0.3.0: true in-place updates (release DMG
+  -> codesign verify with TEAM ID PINNED to 8W2KYM5Y4J -> rename-aside swap with
+  rollback -> relaunch; any failure leaves the running version untouched) and the two
+  zero-engine speed wins from the 2026-07-10 latency research (embedder keep_alive +
+  preload, system-prompt KV warm). Memory design and the remaining speed ranks are
+  RESEARCH-ONLY this cycle (docs/2026-07-10-memory-design-draft.md,
+  docs/2026-07-10-speed-to-insights-draft.md) — every engine-touching item stays behind
+  the 63/63 golden gate (D-79). (D-78, D-80)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal

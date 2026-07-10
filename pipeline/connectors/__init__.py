@@ -96,13 +96,16 @@ def services():
 # is untouched (SC-6).
 
 def request(method, url, *, headers=None, params=None, json_body=None,
-            timeout=DEFAULT_TIMEOUT, auth=None, follow_redirects=True):
+            form_body=None, timeout=DEFAULT_TIMEOUT, auth=None,
+            follow_redirects=True):
     """One HTTP call with the taxonomy applied to transport + status errors.
-    Returns the httpx.Response for 2xx; raises ConnectorError subclasses else."""
+    ``form_body`` sends application/x-www-form-urlencoded (OAuth token
+    endpoints). Returns the httpx.Response for 2xx; raises ConnectorError
+    subclasses else."""
     try:
         resp = httpx.request(method, url, headers=headers, params=params,
-                             json=json_body, timeout=timeout, auth=auth,
-                             follow_redirects=follow_redirects)
+                             json=json_body, data=form_body, timeout=timeout,
+                             auth=auth, follow_redirects=follow_redirects)
     except httpx.TimeoutException:
         raise ConnectorUnavailable("the service did not respond in time")
     except httpx.HTTPError as e:
