@@ -150,6 +150,30 @@ CREATE TABLE IF NOT EXISTS connection_items (
     imported TEXT NOT NULL,
     PRIMARY KEY (connection_id, source_id)
 );
+CREATE TABLE IF NOT EXISTS matter_facts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    matter_slug TEXT NOT NULL,
+    doc_id INTEGER NOT NULL,
+    fact_key TEXT NOT NULL,
+    fact_type TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    page INTEGER NOT NULL,
+    char_start INTEGER NOT NULL,
+    char_end INTEGER NOT NULL,
+    span TEXT NOT NULL,
+    extractor_version TEXT NOT NULL,
+    created TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_matter_facts ON matter_facts (matter_slug, fact_type);
+CREATE TABLE IF NOT EXISTS fact_review (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    matter_slug TEXT NOT NULL,
+    fact_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    confirmed_date TEXT,
+    created TEXT NOT NULL,
+    UNIQUE (matter_slug, fact_key)
+);
 """
 
 
@@ -178,6 +202,9 @@ def _connect(db_path=None):
         # v0.3.0 (D-81): provenance for cloud-imported documents — JSON with source
         # service, source id, author, dates, meeting title, speakers. NULL = local.
         "ALTER TABLE documents ADD COLUMN source_json TEXT",
+        # M-2 matter digest: extractor version this doc's facts were built with.
+        # NULL = not yet digested at any version.
+        "ALTER TABLE documents ADD COLUMN digest_version TEXT",
     ):
         try:
             conn.execute(migration)
@@ -444,6 +471,8 @@ def delete_matter(slug, db_path=None):
     first; this never touches a vector store or any document file."""
     conn = _connect(db_path)
     try:
+        conn.execute("DELETE FROM matter_facts WHERE matter_slug = ?", (slug,))
+        conn.execute("DELETE FROM fact_review WHERE matter_slug = ?", (slug,))
         conn.execute("DELETE FROM matters WHERE slug = ?", (slug,))
         conn.commit()
     finally:
@@ -524,6 +553,120 @@ def delete_line_map(doc_id, db_path=None):
         conn.close()
 
 
+# --- matter digest (M-2) -------------------------------------------------------
+# matter_facts is PURE MACHINE OUTPUT — a function of (document, extractor_version),
+# idempotently rebuildable. Human judgment lives ONLY in fact_review, keyed by a
+# stable content hash so it survives re-extraction of the same fact. Absent review
+# row = "proposed". The answer path never reads these tables (test_digest_fencing).
+
+def replace_facts(doc_id, matter_slug, facts, extractor_version, db_path=None):
+    """Atomically replace one document's facts and stamp documents.digest_version.
+    Zero facts is a legitimate outcome (the stamp still records the doc as digested)."""
+    conn = _connect(db_path)
+    try:
+        conn.execute("DELETE FROM matter_facts WHERE doc_id = ?", (doc_id,))
+        for f in facts:
+            conn.execute(
+                "INSERT INTO matter_facts (matter_slug, doc_id, fact_key, fact_type, "
+                "value_json, page, char_start, char_end, span, extractor_version, created) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (matter_slug, doc_id, f["fact_key"], f["fact_type"],
+                 json.dumps(f["value"]), f["page"], f["char_start"], f["char_end"],
+                 f["span"], extractor_version, _now()))
+        conn.execute("UPDATE documents SET digest_version = ? WHERE id = ?",
+                     (extractor_version, doc_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def facts_for_matter(matter_slug, db_path=None):
+    """All fact rows for one matter (joined with the document filename). The
+    explicit matter_slug is the fence — there is no all-matters accessor."""
+    if not matter_slug:
+        raise ValueError("matter_slug is required")
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT f.*, d.filename FROM matter_facts f "
+            "JOIN documents d ON d.id = f.doc_id "
+            "WHERE f.matter_slug = ? ORDER BY f.doc_id, f.page, f.char_start",
+            (matter_slug,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def set_fact_review(matter_slug, fact_key, status, confirmed_date=None, db_path=None):
+    """Upsert the attorney's judgment on one fact. status None deletes the row
+    (revert to proposed)."""
+    if not matter_slug:
+        raise ValueError("matter_slug is required")
+    if status not in ("confirmed", "dismissed", None):
+        raise ValueError("status must be 'confirmed', 'dismissed', or None")
+    conn = _connect(db_path)
+    try:
+        if status is None:
+            conn.execute("DELETE FROM fact_review WHERE matter_slug = ? AND fact_key = ?",
+                         (matter_slug, fact_key))
+        else:
+            conn.execute(
+                "INSERT INTO fact_review (matter_slug, fact_key, status, confirmed_date, created) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(matter_slug, fact_key) DO UPDATE SET "
+                "status = excluded.status, confirmed_date = excluded.confirmed_date",
+                (matter_slug, fact_key, status, confirmed_date, _now()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def reviews_for_matter(matter_slug, db_path=None):
+    if not matter_slug:
+        raise ValueError("matter_slug is required")
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT fact_key, status, confirmed_date FROM fact_review WHERE matter_slug = ?",
+            (matter_slug,)).fetchall()
+        return {r["fact_key"]: {"status": r["status"],
+                                "confirmed_date": r["confirmed_date"]} for r in rows}
+    finally:
+        conn.close()
+
+
+def prune_orphan_reviews(matter_slug, db_path=None):
+    """Delete reviews whose fact no longer exists (changed on re-extraction)."""
+    if not matter_slug:
+        raise ValueError("matter_slug is required")
+    conn = _connect(db_path)
+    try:
+        cur = conn.execute(
+            "DELETE FROM fact_review WHERE matter_slug = ? AND fact_key NOT IN "
+            "(SELECT fact_key FROM matter_facts WHERE matter_slug = ?)",
+            (matter_slug, matter_slug))
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def digest_progress(matter_slug, extractor_version, db_path=None):
+    """How much of this matter is digested at the current extractor version."""
+    if not matter_slug:
+        raise ValueError("matter_slug is required")
+    conn = _connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN digest_version = ? THEN 1 ELSE 0 END) AS done "
+            "FROM documents WHERE matter_slug = ? AND status IN ('ready', 'needs_review')",
+            (extractor_version, matter_slug)).fetchone()
+        return {"done": row["done"] or 0, "total": row["total"] or 0}
+    finally:
+        conn.close()
+
+
 def get_document(doc_id, db_path=None):
     conn = _connect(db_path)
     try:
@@ -575,6 +718,7 @@ def update_document(doc_id, status, reason=None, db_path=None):
 def delete_document(doc_id, db_path=None):
     conn = _connect(db_path)
     try:
+        conn.execute("DELETE FROM matter_facts WHERE doc_id = ?", (doc_id,))
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.commit()
     finally:
