@@ -36,22 +36,22 @@ class TestIngestHook(unittest.TestCase):
 
     def test_ready_triggers_digest(self):
         dg = self._run("ready")
-        dg.extract_for_document.assert_called_once_with(
+        dg.enqueue.assert_called_once_with(
             self.doc["id"], str(self.tmp / "kb"), catalog_db=None)
 
     def test_needs_review_triggers_digest(self):
         dg = self._run("needs_review")
-        dg.extract_for_document.assert_called_once_with(
+        dg.enqueue.assert_called_once_with(
             self.doc["id"], str(self.tmp / "kb"), catalog_db=None)
 
     def test_failed_does_not_trigger(self):
         dg = self._run("failed")
-        dg.extract_for_document.assert_not_called()
+        dg.enqueue.assert_not_called()
 
     def test_digest_crash_never_fails_ingest(self):
         with mock.patch.object(ingest_worker.kb_ingest, "ingest_document",
                                return_value="ready"), \
-             mock.patch.object(ingest_worker.digest, "extract_for_document",
+             mock.patch.object(ingest_worker.digest, "enqueue",
                                side_effect=RuntimeError("boom")):
             ingest_worker._run(self.doc["id"], str(self.a_path), "m",
                                str(self.tmp / "kb"), None)   # must not raise
@@ -81,9 +81,8 @@ class TestBackfill(unittest.TestCase):
         catalog.replace_facts(d2["id"], "m", [], digest.EXTRACTOR_VERSION)  # already done
         self._doc("broken.pdf", "failed")
         seen = []
-        with mock.patch.object(digest, "extract_for_document",
-                               side_effect=lambda i, *a, **k: seen.append(i)), \
-             mock.patch.object(digest, "_yield_to_chat"):
+        with mock.patch.object(digest, "enqueue",
+                               side_effect=lambda i, *a, **k: seen.append(i)):
             t = digest.backfill_async(self.tmp / "kb", initial_delay=0)
             t.join(timeout=10)
         self.assertEqual(seen, [d1["id"]])

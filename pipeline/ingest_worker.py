@@ -107,14 +107,16 @@ def _run(doc_id, file_path, matter_slug, db_path, catalog_db):
         for i, (t, s) in enumerate(marks))
     log.info("ingest doc=%s status=%s total=%.0fms %s", doc_id, result, total_ms, stages)
 
-    # M-2: build the matter digest for a successfully ingested doc. Best-effort —
-    # a digest failure must never fail the ingest (the doc is already searchable).
+    # M-2: queue the matter digest for a successfully ingested doc onto digest's own
+    # background worker (F3) — extraction must not serialize the ingest queue behind
+    # an LLM call. Best-effort: an enqueue failure must never fail the ingest (the
+    # doc is already searchable).
     if result in ("ready", "needs_review"):
-        on_stage("digest")
+        on_stage("digest-queued")
         try:
-            digest.extract_for_document(doc_id, db_path, catalog_db=catalog_db)
+            digest.enqueue(doc_id, db_path, catalog_db=catalog_db)
         except Exception:
-            log.exception("digest failed (non-fatal): doc_id=%s", doc_id)
+            log.exception("digest enqueue failed (non-fatal): doc_id=%s", doc_id)
 
     _state["processed"] += 1
     _state["current"] = None
