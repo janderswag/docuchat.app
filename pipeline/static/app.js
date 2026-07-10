@@ -588,9 +588,13 @@
       var f = files[i];
       if (f.name.charAt(0) === "." || !isSupportedFile(f.name)) { skipped++; continue; }
       try {
+        // Send the bytes, NOT the File object: WKWebView (the macOS app's web
+        // view) throws "The string did not match the expected pattern" on a
+        // File/Blob fetch body, though Chromium accepts it. ArrayBuffer works in both.
         await fetch("/kb/upload?matter=" + encodeURIComponent(dest) +
                     "&filename=" + encodeURIComponent(f.name) +
-                    (isTranscript ? "&doc_type=transcript" : ""), { method: "POST", body: f })
+                    (isTranscript ? "&doc_type=transcript" : ""),
+                    { method: "POST", body: await f.arrayBuffer() })
           .then(function (r) { if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail); }); });
         added++;
       } catch (e) { if (err) err.textContent = friendlyError(e); }
@@ -930,7 +934,8 @@
       try {
         await fetch("/kb/upload?matter=" + encodeURIComponent(slug) +
                     "&filename=" + encodeURIComponent(f.name) +
-                    (isTranscript ? "&doc_type=transcript" : ""), { method: "POST", body: f })
+                    (isTranscript ? "&doc_type=transcript" : ""),
+                    { method: "POST", body: await f.arrayBuffer() })  // ArrayBuffer, not File (WKWebView)
           .then(function (r) { if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail); }); });
       } catch (e) { if (err) err.textContent = friendlyError(e); }
     }
@@ -1408,7 +1413,9 @@
       var f = fileInput.files[0];
       if (!f) return;
       try {
-        var r = await fetch("/profile/photo", { method: "POST", body: f });
+        // ArrayBuffer, not the File: WKWebView throws "The string did not match
+        // the expected pattern" on a File/Blob fetch body (works in Chromium).
+        var r = await fetch("/profile/photo", { method: "POST", body: await f.arrayBuffer() });
         if (!r.ok) throw new Error((await r.json()).detail || "upload failed");
         photoVer++;
         await loadProfile();
