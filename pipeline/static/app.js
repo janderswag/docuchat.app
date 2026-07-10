@@ -63,8 +63,6 @@
       if (state.matter) localStorage.setItem(MATTER_KEY, state.matter);
       else localStorage.removeItem(MATTER_KEY);
     } catch (e) {}
-    var el = document.getElementById("active-matter");
-    if (el) el.textContent = label || slug || "none";
     document.querySelectorAll(".matter-picker").forEach(function (sel) {
       if (sel.value !== state.matter) sel.value = state.matter || "";
     });

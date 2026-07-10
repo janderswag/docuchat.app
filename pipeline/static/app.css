@@ -56,11 +56,7 @@ body{font-family:var(--sans);color:var(--text);background-color:var(--bg);
 .nav-ico{display:inline-grid;place-items:center;width:18px;flex:0 0 18px}
 .nav-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;opacity:.75}
 .nav-item.active .nav-ico svg{opacity:1;stroke:#6e5220}
-#nav-foot{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:8px}
-.sidebar-foot{padding:12px 11px 4px;border-top:1px solid var(--border-2);margin-top:10px}
-.sidebar-foot .active-matter-row{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint)}
-#active-matter{display:block;font-family:var(--serif);font-style:italic;font-size:15px;
-  text-transform:none;letter-spacing:0;color:var(--text);margin-top:3px}
+#nav-foot{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:8px;padding-bottom:6px}
 
 /* Content */
 #content{flex:1;overflow:auto}
