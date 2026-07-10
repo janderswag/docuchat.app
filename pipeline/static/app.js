@@ -888,9 +888,10 @@
     if (building) overviewPoll = setTimeout(function () { renderMatterOverview(slug); }, 5000);
 
     function srcLine(i) {
+      var u = highlightUrl({ doc_id: i.doc_id, page: i.page, span: i.span })
+        .replace(/'/g, "%27"); // encodeURIComponent leaves ' raw; it would end the href='...'
       return "<div class='ov-src'>“" + esc(i.span) + "” — <a class='ov-cite' " +
-        "href='" + highlightUrl({ doc_id: i.doc_id, page: i.page, span: i.span }) +
-        "' target='_blank'>" + esc(i.filename) + " p." + esc(String(i.page)) + "</a></div>";
+        "href='" + u + "' target='_blank'>" + esc(i.filename) + " p." + esc(String(i.page)) + "</a></div>";
     }
 
     function deadlineRow(i) {

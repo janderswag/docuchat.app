@@ -32,6 +32,11 @@ class TestOverviewUI(unittest.TestCase):
         self.assertIn(".ov-due", APP_CSS)
         self.assertIn("#matter-dropzone.slim", APP_CSS)
 
+    def test_overview_href_encodes_apostrophes(self):
+        # encodeURIComponent leaves ' raw; srcLine must percent-encode it or a span
+        # like "tenant's deposit" breaks out of the single-quoted href attribute
+        self.assertIn('replace(/\'/g, "%27")', APP_JS)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
