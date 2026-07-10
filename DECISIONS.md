@@ -927,6 +927,22 @@
   the business-model call), site referral program, Lock app, deadline-extraction tool,
   privilege-log generator, Word export templates.
 
+- **D-77 — UX-7: owner-directed nav v3 — the Document Hub filing cabinet (2026-07-09).**
+  Owner reviewed UX-2/UX-6 live and redirected: he could not find where to upload (the
+  strongest signal the upload-inside-matter pattern failed), and ordered the nav as Chat /
+  Chat History / Document Hub / Review & Compare / Settings with Billing + Referrals at the
+  bottom. Shipped: the hub is THE place to upload anything; new files land in **Unfiled**
+  (a real matter created lazily, so unfiled docs stay chattable/searchable); matters render
+  as folder cards; filing = drag a row onto a card OR a per-row Move-to select, backed by
+  POST /kb/documents/move (decrypt source-DEK -> re-encrypt dest-DEK, old-scope chunks
+  deleted, re-ingest queued, audit event, 409 while the source matter is under hold —
+  moving out of a held matter would defeat preservation). The Search tab was cut (owner:
+  no value as a tab) and its exhaustive every-mention capability folded into the hub as
+  "Find in documents". Chat returned to a single pane; Chat History is its own tab.
+  Billing/Referrals exist as nav items with HONEST content only (Pilot/free plan card,
+  license-key plan; docuchat.app share link) — no payment rails are faked; the D-76
+  business-model gate still applies before any real billing build. (D-75, D-76)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal

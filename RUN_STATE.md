@@ -7,6 +7,17 @@ _Last updated: 2026-07-09_
 
 ## Status
 
+**2026-07-09 UX-7 cycle — owner-directed nav v3, SHIPPED on `ux-v2` (D-77).** After viewing
+the UX-6 preview the owner redirected the IA: nav is now Chat / Chat History / Document Hub /
+Review & Compare / Settings with Billing + Referrals pinned at the bottom. The Document Hub
+is the filing cabinet: upload anything -> Unfiled (a real lazily-created matter) -> drag onto
+matter folder cards to file (POST /kb/documents/move: DEK re-encrypt, re-index, 409 under
+source-matter hold; per-row Move-to fallback). Search folded into the hub as "Find in
+documents"; Chat is a single pane again. Billing = honest Pilot/free plan card + license-key
+plan (no fake Upgrade buttons); Referrals = docuchat.app share link (rewards arrive with
+licensing). UI-verified live incl. upload->Unfiled->move->drawer. OWNER QUEUE: preview at
+127.0.0.1:8001/app -> approve -> merge ux-v2.
+
 **2026-07-09 UX-6 cycle — Granola-inspired shell + profile/memory/connectors, SHIPPED on
 `ux-v2`, AWAITING OWNER PREVIEW (D-76).** Owner benchmark vs Granola; billing/referrals/
 sign-out/"personality" rejected as fake or off-brand surfaces (owner invited the pushback —
