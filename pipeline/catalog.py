@@ -15,6 +15,7 @@ via ``migrate_catalog_sqlcipher.py`` (rename-aside, rehearsed by the drill tests
 """
 
 import hashlib
+import json
 import re
 import sqlite3
 import sys
@@ -121,6 +122,10 @@ CREATE TABLE IF NOT EXISTS messages (
     created TEXT NOT NULL,
     FOREIGN KEY (thread_id) REFERENCES threads(id)
 );
+CREATE TABLE IF NOT EXISTS profile (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -157,6 +162,41 @@ def _connect(db_path=None):
 def slugify(name):
     """Path-safe slug: lowercase, non-alphanumeric -> '-', collapsed, trimmed."""
     return re.sub(r"[^a-z0-9]+", "-", (name or "").strip().lower()).strip("-")
+
+
+# --- profile (UX-5 onboarding) -------------------------------------------------
+# The attorney's LOCAL identity: name, practice areas, onboarded flag. Lives in the
+# (SQLCipher-encrypted in production) catalog and never leaves the machine. JSON
+# values keyed by name so new fields need no migration.
+
+def get_profile(db_path=None):
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT key, value FROM profile").fetchall()
+        out = {}
+        for r in rows:
+            try:
+                out[r["key"]] = json.loads(r["value"])
+            except ValueError:
+                pass  # a corrupt value is dropped, never fatal
+        return out
+    finally:
+        conn.close()
+
+
+def set_profile(values, db_path=None):
+    """Upsert the given keys (a partial update — absent keys are untouched)."""
+    conn = _connect(db_path)
+    try:
+        for k, v in (values or {}).items():
+            conn.execute(
+                "INSERT INTO profile (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (str(k), json.dumps(v)),
+            )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 # --- matters -----------------------------------------------------------------

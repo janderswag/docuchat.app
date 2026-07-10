@@ -108,6 +108,182 @@
     if (document.getElementById("grid-docs")) refreshGridDocs();
   };
 
+  // --- profile + onboarding (UX-5) --------------------------------------------
+  // The attorney's LOCAL identity: first name + practice areas, stored only in the
+  // local (encrypted) catalog via /profile. Every field has a visible use — the
+  // greeting, and practice-tailored suggested prompts. Nothing is collected that
+  // the product does not use.
+  state.profile = {};
+
+  async function loadProfile() {
+    try { state.profile = await api("/profile"); } catch (e) { state.profile = {}; }
+    updateGreeting();
+    return state.profile;
+  }
+
+  function updateGreeting() {
+    var el = document.getElementById("chat-greet-title");
+    if (!el) return;
+    var name = ((state.profile && state.profile.name) || "").trim().split(/\s+/)[0];
+    if (!name) { el.textContent = "What would you like to ask?"; return; }
+    var h = new Date().getHours();
+    var tod = h < 12 ? "Good morning" : (h < 18 ? "Good afternoon" : "Good evening");
+    el.textContent = tod + ", " + name + ".";
+  }
+
+  // Practice-tailored prompt templates (generic document questions, honest: they do
+  // not presume specific content — the user can edit before sending).
+  var PRACTICE_PROMPTS = {
+    "Business & Contracts": [
+      "List every termination right in these documents",
+      "What are the indemnification obligations?",
+      "Find every payment obligation and its deadline"],
+    "Litigation": [
+      "Build a timeline of the key events in these documents",
+      "What deadlines appear in these documents?",
+      "Find every mention of the disputed incident"],
+    "Employment": [
+      "What do these documents say about non-compete restrictions?",
+      "Find every reference to termination or severance",
+      "What notice periods apply?"],
+    "Estate & Probate": [
+      "Who are the named beneficiaries and what does each receive?",
+      "What powers does the trustee have?",
+      "Find every reference to amendments or restatements"],
+    "Real Estate": [
+      "What are the closing conditions and deadlines?",
+      "Find every easement or encumbrance mentioned",
+      "What are the maintenance obligations?"],
+    "Family": [
+      "What do these documents say about custody and visitation?",
+      "Find every support obligation and its amount",
+      "What conditions trigger a modification?"],
+    "Criminal Defense": [
+      "Build a timeline of events from these documents",
+      "Summarize what each witness statement says",
+      "Find every mention of the evidence collected"],
+    "Immigration": [
+      "What deadlines and filing dates appear in these documents?",
+      "Summarize the applicant's history from these documents",
+      "Find every reference to prior applications"],
+    "Personal Injury": [
+      "Summarize the injuries described in these records",
+      "Build a timeline from the incident to the last treatment",
+      "Find every reference to lost wages or damages"],
+    "IP & Technology": [
+      "What does the license grant cover and exclude?",
+      "Find every assignment of intellectual property",
+      "What are the confidentiality obligations?"],
+  };
+
+  function practicePrompts() {
+    var areas = (state.profile && state.profile.practice_areas) || [];
+    var out = [], i = 0, added = true;
+    while (out.length < 3 && added) {
+      added = false;
+      for (var j = 0; j < areas.length && out.length < 3; j++) {
+        var list = PRACTICE_PROMPTS[areas[j]] || [];
+        if (i < list.length) { out.push(list[i]); added = true; }
+      }
+      i++;
+    }
+    return out;
+  }
+
+  // Shared practice-area chip set (onboarding + Settings).
+  function renderAreaChips(container, selected) {
+    var areas = (state.profile && state.profile.available_practice_areas) || [];
+    container.innerHTML = areas.map(function (a) {
+      var on = (selected || []).indexOf(a) >= 0;
+      return "<button type='button' class='chip" + (on ? " on" : "") + "' data-area='" +
+        esc(a) + "'>" + esc(a) + "</button>";
+    }).join("");
+    container.querySelectorAll(".chip").forEach(function (b) {
+      b.addEventListener("click", function () { b.classList.toggle("on"); });
+    });
+  }
+
+  function chipValues(container) {
+    return Array.prototype.slice.call(container.querySelectorAll(".chip.on"))
+      .map(function (b) { return b.dataset.area; });
+  }
+
+  async function saveProfile(vals) {
+    state.profile = await api("/profile", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(vals),
+    });
+    updateGreeting();
+    if (document.getElementById("chat-guide")) renderChatGuide();
+  }
+
+  // First-run onboarding: three skippable screens, under a minute. Screen 1 is the
+  // privacy promise (the differentiator, not a chore), screen 2 captures the two
+  // fields the product actually uses, screen 3 sets the verification expectation.
+  function maybeShowOnboarding() {
+    if (state.profile && state.profile.onboarded) return;
+    if (document.getElementById("onboard-overlay")) return;
+    var ov = document.createElement("div");
+    ov.id = "onboard-overlay";
+    ov.innerHTML =
+      "<div class='onboard-card'>" +
+      "<div class='onboard-step' data-step='1'>" +
+      "<h2>Everything stays on this machine.</h2>" +
+      "<p>docuchat runs entirely on your computer. Your documents never leave it. " +
+      "No cloud, no account, no telemetry.</p>" +
+      "<p class='muted'>It works with Wi-Fi off. You can check.</p>" +
+      "<div class='onboard-actions'><button class='btn' data-next='2'>Set up in 30 seconds</button>" +
+      "<a href='#' class='onboard-skip'>Skip</a></div>" +
+      "</div>" +
+      "<div class='onboard-step' data-step='2' style='display:none'>" +
+      "<h2>A few basics</h2>" +
+      "<label class='field-label'>What should we call you? (optional)</label>" +
+      "<input type='text' id='onboard-name' placeholder='First name' style='margin-top:6px'>" +
+      "<label class='field-label' style='margin-top:16px;display:block'>Your practice areas</label>" +
+      "<div id='onboard-areas' class='chip-set'></div>" +
+      "<p class='muted' style='font-size:12px;margin-top:12px'>Stored only in a local file on this " +
+      "computer. Change anytime in Settings.</p>" +
+      "<div class='onboard-actions'><button class='btn' data-next='3'>Continue</button>" +
+      "<a href='#' class='onboard-skip'>Skip</a></div>" +
+      "</div>" +
+      "<div class='onboard-step' data-step='3' style='display:none'>" +
+      "<h2>How to trust the answers</h2>" +
+      "<p>docuchat answers only from your documents. Every claim is cited to the exact page " +
+      "and passage, and each citation is mechanically checked against the source text before " +
+      "it reaches you. If the documents do not support an answer, it says so.</p>" +
+      "<p><b>AI can still misread context.</b> Verify citations before you rely on them. " +
+      "This is a research assistant, not legal advice.</p>" +
+      "<div class='onboard-actions'><button class='btn' id='onboard-done'>Start</button></div>" +
+      "</div></div>";
+    document.body.appendChild(ov);
+    renderAreaChips(document.getElementById("onboard-areas"),
+                    (state.profile && state.profile.practice_areas) || []);
+
+    function goStep(n) {
+      ov.querySelectorAll(".onboard-step").forEach(function (s) {
+        s.style.display = s.dataset.step === String(n) ? "" : "none";
+      });
+    }
+    ov.querySelectorAll("[data-next]").forEach(function (b) {
+      b.addEventListener("click", function () { goStep(b.dataset.next); });
+    });
+    ov.querySelectorAll(".onboard-skip").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        saveProfile({ onboarded: true }).catch(function () {});
+        ov.remove();
+      });
+    });
+    document.getElementById("onboard-done").addEventListener("click", function () {
+      saveProfile({
+        name: document.getElementById("onboard-name").value,
+        practice_areas: chipValues(document.getElementById("onboard-areas")),
+        onboarded: true,
+      }).catch(function () {});
+      ov.remove();
+    });
+  }
+
   // --- Matters view (the case file: list + detail) ----------------------------
   // A matter holds its documents (upload lives HERE), its conversations, and its
   // tools. The old global "Document Hub" is absorbed: documents always belong to a
@@ -582,9 +758,24 @@
         active.suggested_questions.map(function (q) {
           return "<button class='btn secondary guide-q' data-q='" + esc(q) + "'>" + esc(q) + "</button>";
         }).join(" ") + "</div>";
+    } else if (active && active.doc_count > 0 && practicePrompts().length) {
+      // UX-5: prompts tailored to the attorney's practice areas. They FILL the
+      // composer (editable templates), never auto-send — the user stays in control.
+      box.innerHTML =
+        "<div class='guide-chips'><span class='muted'>Ideas for this matter:</span> " +
+        practicePrompts().map(function (q) {
+          return "<button class='btn secondary guide-fill' data-q='" + esc(q) + "'>" + esc(q) + "</button>";
+        }).join(" ") + "</div>";
     } else {
       box.innerHTML = "";
     }
+    box.querySelectorAll(".guide-fill").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var input = document.getElementById("chat-input");
+        input.value = b.dataset.q;
+        input.focus();
+      });
+    });
     box.querySelectorAll("[data-goto]").forEach(function (a) {
       a.addEventListener("click", function (e) {
         e.preventDefault();
@@ -750,6 +941,7 @@
 
   function chatHook() {
     ensureBuilt("chat", buildChat);
+    updateGreeting();
     fillMatterPickers().then(renderChatGuide).catch(function () {});
     refreshThreadRail();
   }
@@ -860,7 +1052,30 @@
         esc(Object.values(s.hardening.backup_exclusions || {}).join("; ") || "n/a") +
         "</td></tr>") : "") +
       "</table></div>" +
+      "<div class='panel'><b>Profile</b>" +
+      "<table style='margin-top:8px'>" +
+      "<tr><th>Name</th><td><input type='text' id='profile-name' placeholder='First name' " +
+      "style='max-width:280px' value='" + esc((state.profile && state.profile.name) || "") + "'></td></tr>" +
+      "<tr><th>Practice areas</th><td><div id='profile-areas' class='chip-set'></div></td></tr>" +
+      "</table>" +
+      "<div style='margin-top:12px'><button class='btn' id='profile-save'>Save profile</button> " +
+      "<span id='profile-saved' class='muted' style='font-size:13px'></span></div>" +
+      "<p class='muted' style='font-size:12px'>Used to greet you and tailor suggested prompts. " +
+      "Stored only on this computer.</p></div>" +
       "<p class='muted'>Synthetic/public documents only. Backup/restore via deploy/restore.sh (SC-7).</p>";
+    renderAreaChips(document.getElementById("profile-areas"),
+                    (state.profile && state.profile.practice_areas) || []);
+    document.getElementById("profile-save").addEventListener("click", async function () {
+      var saved = document.getElementById("profile-saved");
+      saved.textContent = "";
+      try {
+        await saveProfile({
+          name: document.getElementById("profile-name").value,
+          practice_areas: chipValues(document.getElementById("profile-areas")),
+        });
+        saved.textContent = "Saved.";
+      } catch (e) { saved.textContent = e.message; }
+    });
     var badge = document.getElementById("brand-badge");
     if (badge) badge.textContent = local ? "100% local" : "review";
   }
@@ -1178,5 +1393,6 @@
     });
     fillMatterPickers().catch(function () {});
     showView("chat");
+    loadProfile().then(maybeShowOnboarding).catch(function () {});
   });
 })();
