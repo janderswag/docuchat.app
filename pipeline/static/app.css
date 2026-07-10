@@ -56,7 +56,8 @@ body{font-family:var(--sans);color:var(--text);background-color:var(--bg);
 .nav-ico{display:inline-grid;place-items:center;width:18px;flex:0 0 18px}
 .nav-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;opacity:.75}
 .nav-item.active .nav-ico svg{opacity:1;stroke:#6e5220}
-.sidebar-foot{margin-top:auto;padding:12px 11px 4px;border-top:1px solid var(--border-2)}
+#nav-foot{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:8px}
+.sidebar-foot{padding:12px 11px 4px;border-top:1px solid var(--border-2);margin-top:10px}
 .sidebar-foot .active-matter-row{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint)}
 #active-matter{display:block;font-family:var(--serif);font-style:italic;font-size:15px;
   text-transform:none;letter-spacing:0;color:var(--text);margin-top:3px}
@@ -106,21 +107,7 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
    in the middle; once a message exists, the thread fills and the input pins to
    the bottom (the ChatGPT/Claude pattern). */
 #view-chat.view.active{display:block;height:100%}
-#view-chat .view-inner{display:flex;flex-direction:column;height:100%;max-width:1120px;padding:20px 28px}
-/* UX-2: past conversations live in a rail INSIDE Chat (never a separate nav item). */
-.chat-layout{display:flex;flex:1;min-height:0;gap:20px;height:100%}
-.chat-rail{flex:0 0 210px;display:flex;flex-direction:column;gap:10px;min-height:0;
-  padding-right:16px;border-right:1px solid var(--border)}
-.rail-label{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint)}
-.thread-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px;min-height:0}
-.thread-item{background:transparent;border:0;text-align:left;font:inherit;font-size:13px;
-  padding:7px 9px;border-radius:8px;cursor:pointer;color:var(--text);min-width:0}
-.thread-item:hover{background:var(--panel-2)}
-.thread-item.active{background:var(--accent-soft)}
-.thread-item .t-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
-.thread-item .t-meta{display:block;font-size:11px;color:var(--faint);margin-top:1px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chat-main{flex:1;display:flex;flex-direction:column;min-width:0;height:100%}
+#view-chat .view-inner{display:flex;flex-direction:column;height:100%;max-width:900px;padding:20px 28px}
 .field-label{display:block;font-size:12px;font-weight:600;letter-spacing:.3px;color:var(--muted);text-transform:uppercase}
 
 .chat-head{display:flex;align-items:center;gap:12px;padding-bottom:14px;margin-bottom:6px;border-bottom:1px solid var(--border)}
@@ -245,6 +232,26 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
 .folder-status{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
 .folder-status.ok{background:#e6f0e2;color:var(--ok)}
 .folder-status.missing{background:#f6e2dc;color:var(--err)}
+
+/* Document Hub filing cabinet (UX-7) */
+.matter-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:12px}
+.matter-card{background:var(--panel-2);border:1px solid var(--border-2);border-radius:13px;
+  padding:16px 16px 14px;cursor:pointer;transition:border-color .14s,background .14s,box-shadow .14s}
+.matter-card:hover{background:#f2ecdf;border-color:var(--accent)}
+.matter-card.drop-target{border-color:var(--accent);background:var(--accent-soft);
+  box-shadow:0 0 0 3px rgba(180,138,74,.18)}
+.matter-card .mc-name{display:block;font-family:var(--serif);font-size:17px;font-weight:500;
+  margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.matter-card .mc-meta{font-size:12px;color:var(--muted)}
+tr.doc-row{cursor:grab}
+tr.doc-row:active{cursor:grabbing}
+
+/* Billing (UX-7): honest plan card */
+.plan-card{display:flex;align-items:flex-start;gap:14px}
+.plan-name{font-family:var(--serif);font-size:28px;font-weight:500;letter-spacing:-.3px}
+.plan-badge{display:inline-block;vertical-align:6px;margin-left:8px;font-size:11px;font-weight:700;
+  letter-spacing:.4px;text-transform:uppercase;color:var(--ok);background:#e6f0e2;
+  border:1px solid #b6d7bf;padding:3px 10px;border-radius:999px}
 
 /* Onboarding (UX-5): three skippable screens over the app on first run */
 #onboard-overlay{position:fixed;inset:0;background:rgba(28,27,23,.55);z-index:50;

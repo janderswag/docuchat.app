@@ -12,7 +12,7 @@
    (pickers, tables, rails) without ever touching result containers. */
 (function () {
   "use strict";
-  var VIEWS = ["matters", "chat", "search", "review", "settings"];
+  var VIEWS = ["chat", "history", "hub", "review", "settings", "billing", "referrals"];
   // The active matter persists across launches (P1.4) — localStorage holds the slug
   // only (never document content); it is re-validated against /matters on every load.
   var MATTER_KEY = "docuchat.activeMatter";
@@ -322,111 +322,257 @@
     });
   }
 
-  // --- Matters view (the case file: list + detail) ----------------------------
-  // A matter holds its documents (upload lives HERE), its conversations, and its
-  // tools. The old global "Document Hub" is absorbed: documents always belong to a
-  // matter, the way a filing belongs to a case file.
+  // --- Document Hub (UX-7, owner-directed): the filing cabinet -----------------
+  // Upload ANYTHING here (documents, transcripts, emails); new files land in
+  // "Unfiled". Below, the matters are folder cards: drag a document onto a matter
+  // to file it (a per-row "Move to" select is the no-drag fallback). Clicking a
+  // matter opens its drawer (documents, conversations, tools, retention actions).
+  // The home skeleton builds ONCE (UX-3): find results and pickers survive
+  // navigation; only tables/cards/status refresh.
   var mattersState = { open: null, builtFor: null, timer: null };
+  var UNFILED_NAME = "Unfiled";
+  var UNFILED_SLUG = "unfiled";
 
-  function buildMatters(inner) {
-    inner.innerHTML = "<div id='matters-list'></div>" +
-      "<div id='matter-detail' style='display:none'></div>";
-  }
-
-  function refreshMattersView() {
-    var list = document.getElementById("matters-list");
-    var detail = document.getElementById("matter-detail");
-    if (!list || !detail) return;
-    var open = !!mattersState.open;
-    list.style.display = open ? "none" : "";
-    detail.style.display = open ? "" : "none";
-    if (open) showMatterDetail(mattersState.open);
-    else renderMattersList();
-  }
-
-  async function renderMattersList() {
-    var list = document.getElementById("matters-list");
-    list.innerHTML =
-      "<h1>Matters</h1><p class='muted'>A matter is the case file: its documents, chats, and reviews " +
-      "live inside it. Answers never cross matters.</p>" +
-      "<div class='panel'><div style='display:flex;gap:8px'>" +
+  function buildHub(inner) {
+    inner.innerHTML =
+      "<div id='hub-home'>" +
+      "<h1>Document Hub</h1>" +
+      "<p class='muted'>Your filing cabinet. Upload anything here, then file it into a matter. " +
+      "Everything stays on this computer.</p>" +
+      "<div class='panel'>" +
+      "<div style='display:flex;gap:10px;align-items:center;margin-bottom:12px'>" +
+      "<span class='field-label'>Add to</span>" +
+      "<select id='hub-dest' style='max-width:280px'></select></div>" +
+      "<div id='hub-dropzone' style='border:2px dashed var(--border);border-radius:12px;text-align:center;padding:28px;cursor:pointer'>" +
+      "Drag &amp; drop files here, or click to choose. <span class='muted'>(.pdf .docx .txt .md .eml)</span>" +
+      "<input type='file' id='hub-file-input' multiple style='display:none'></div>" +
+      "<label class='muted' style='display:block;font-size:13px;margin:8px 0 0'>" +
+      "<input type='checkbox' id='hub-upload-transcript'> These are deposition/hearing transcripts " +
+      "(numbered lines — answers get page:line citations)</label>" +
+      "<div id='hub-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='hub-ingest-status' class='muted' style='font-size:13px'></div>" +
+      "</div>" +
+      "<div class='panel'><b>Unfiled</b> <span class='muted' style='font-size:13px'>— drag a document " +
+      "onto a matter below to file it</span>" +
+      "<table style='margin-top:8px'><thead><tr><th>Document</th><th>Size</th><th>Status</th><th></th></tr></thead>" +
+      "<tbody id='unfiled-rows'></tbody></table></div>" +
+      "<div class='panel'><b>Matters</b>" +
+      "<div style='display:flex;gap:8px;margin:10px 0 4px;max-width:480px'>" +
       "<input id='new-matter-name' type='text' placeholder='New matter name (e.g. Pemberton Logistics)'>" +
       "<button class='btn' id='new-matter-btn'>Create</button></div>" +
-      "<div id='new-matter-err' style='color:var(--err);font-size:13px;margin-top:8px'></div></div>" +
-      "<div class='panel'><table><thead><tr><th>Matter</th><th>Docs</th><th>Retention</th></tr></thead>" +
-      "<tbody id='matters-rows'></tbody></table></div>";
+      "<div id='new-matter-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='matter-cards' class='matter-cards'></div></div>" +
+      "<div class='panel'><b>Find in documents</b>" +
+      "<p class='muted' style='font-size:13px;margin:4px 0 10px'>Every mention, exhaustively — the full " +
+      "list of matching passages in the chosen matter, not a top-5. No AI answering here, just your documents.</p>" +
+      "<div style='display:flex;gap:8px;align-items:center'>" +
+      "<select class='matter-picker' id='search-matter' style='max-width:240px'></select>" +
+      "<input id='search-input' type='text' placeholder='A name, amount, defined term, case number…' style='flex:1'>" +
+      "<select id='search-mode' style='max-width:170px'>" +
+      "<option value='mentions'>Every mention</option><option value='fts'>Best match</option></select>" +
+      "<button class='btn' id='search-go'>Find</button></div>" +
+      "<div id='search-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='search-results'></div></div>" +
+      "</div>" +
+      "<div id='matter-detail' style='display:none'></div>";
 
-    var matters = [];
-    try { var d = await api("/matters"); matters = (d && d.matters) || []; }
-    catch (e) { matters = []; }
-    state.matters = matters;
-    document.getElementById("matters-rows").innerHTML = matters.length
-      ? matters.map(function (m) {
-          return "<tr><td><a href='#' class='matter-open' data-open='" + esc(m.slug) + "'><b>" +
-            esc(m.display_name) + "</b></a>" +
-            (m.sample ? " <span class='muted'>(sample)</span>" : "") + "</td><td>" +
-            m.doc_count + "</td><td>" +
-            "<button class='btn secondary' data-hold='" + esc(m.slug) + "'>hold</button> " +
-            "<button class='btn secondary' data-export='" + esc(m.slug) + "'>export</button> " +
-            "<button class='btn secondary' data-dispose='" + esc(m.slug) + "'>dispose</button>" +
-            "</td></tr>";
-        }).join("")
-      : "<tr><td colspan='3' class='muted'>No matters yet — create one above.</td></tr>";
-
-    list.querySelectorAll(".matter-open").forEach(function (a) {
-      a.addEventListener("click", function (e) { e.preventDefault(); openMatter(a.dataset.open); });
+    var dz = document.getElementById("hub-dropzone");
+    var fi = document.getElementById("hub-file-input");
+    dz.addEventListener("click", function () { fi.click(); });
+    fi.addEventListener("change", function () { uploadToDest(fi.files); });
+    dz.addEventListener("dragover", function (e) {
+      // a file drag from the OS, not a row drag
+      if (e.dataTransfer.types.indexOf("Files") !== -1) { e.preventDefault(); dz.style.background = "#eef3ff"; }
     });
-
-    // Retention actions (Move 4, D-72): hold toggles (with reasons), export downloads
-    // the complete matter file, dispose double-confirms and downloads the honest
-    // Certificate of Disposition. Holds block dispose and document deletes (409s).
-    list.querySelectorAll("[data-hold]").forEach(function (b) {
-      b.onclick = async function () {
-        var st = await api("/retention/" + b.dataset.hold + "/status");
-        if (st.hold) {
-          var why = prompt("Active hold: " + st.hold.reason + "\nRelease reason (cancel to keep the hold):");
-          if (why) { await api("/retention/" + b.dataset.hold + "/release", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: why }) }); renderMattersList(); }
-        } else {
-          var reason = prompt("Place a legal hold. Reason:");
-          if (reason) { await api("/retention/" + b.dataset.hold + "/hold", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: reason }) }); renderMattersList(); }
-        }
-      };
+    dz.addEventListener("dragleave", function () { dz.style.background = ""; });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault(); dz.style.background = "";
+      if (e.dataTransfer.files.length) uploadToDest(e.dataTransfer.files);
     });
-    list.querySelectorAll("[data-export]").forEach(function (b) {
-      b.onclick = function () { window.open("/retention/" + b.dataset.export + "/export", "_blank"); };
-    });
-    list.querySelectorAll("[data-dispose]").forEach(function (b) {
-      b.onclick = async function () {
-        var slug = b.dataset.dispose;
-        if (!confirm("Dispose of this matter? Export the complete file FIRST if you have not. " +
-                     "This removes its documents, index, and chat history from this computer.")) return;
-        if (!confirm("Final confirmation: dispose of '" + slug + "' now?")) return;
-        try {
-          var cert = await api("/retention/" + slug + "/dispose?confirm=true", { method: "POST" });
-          var blob = new Blob([JSON.stringify(cert, null, 2)], { type: "application/json" });
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement("a");
-          a.href = url; a.download = "certificate-of-disposition-" + slug + ".json";
-          document.body.appendChild(a); a.click(); a.remove();
-          URL.revokeObjectURL(url);
-          alert("Disposed. Certificate downloaded. Method: " + cert.method);
-        } catch (e) { alert(e.message); }
-        renderMattersList(); fillMatterPickers();
-      };
-    });
-
     document.getElementById("new-matter-btn").addEventListener("click", async function () {
       var name = document.getElementById("new-matter-name").value;
       var err = document.getElementById("new-matter-err");
       err.textContent = "";
       try {
-        var m = await api("/matters", {
+        await api("/matters", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ display_name: name }),
         });
+        document.getElementById("new-matter-name").value = "";
         await fillMatterPickers();
-        openMatter(m.slug);   // straight into the new case file — upload is right there
+        refreshHubHome();
       } catch (e) { err.textContent = e.message; }
+    });
+    document.getElementById("search-matter").addEventListener("change", function (e) {
+      var opt = e.target.selectedOptions[0];
+      setActiveMatter(e.target.value, opt ? opt.textContent : null);
+    });
+    document.getElementById("search-go").addEventListener("click", function () { runSearch(true); });
+    document.getElementById("search-input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); runSearch(true); }
+    });
+  }
+
+  function refreshHubView() {
+    var home = document.getElementById("hub-home");
+    var detail = document.getElementById("matter-detail");
+    if (!home || !detail) return;
+    var open = !!mattersState.open;
+    home.style.display = open ? "none" : "";
+    detail.style.display = open ? "" : "none";
+    if (open) showMatterDetail(mattersState.open);
+    else refreshHubHome();
+  }
+
+  async function refreshHubHome() {
+    try { var d = await api("/matters"); state.matters = (d && d.matters) || []; }
+    catch (e) {}
+    fillHubDest();
+    refreshUnfiled();
+    renderMatterCards();
+    refreshIngestStatus();
+  }
+
+  function fillHubDest() {
+    var sel = document.getElementById("hub-dest");
+    if (!sel) return;
+    var prev = sel.value;
+    var opts = "<option value='" + UNFILED_SLUG + "'>" + UNFILED_NAME + "</option>" +
+      state.matters.filter(function (m) { return m.slug !== UNFILED_SLUG; })
+        .map(function (m) {
+          return "<option value='" + esc(m.slug) + "'>" + esc(m.display_name) + "</option>";
+        }).join("");
+    sel.innerHTML = opts;
+    if (prev) sel.value = prev;
+    if (!sel.value) sel.value = UNFILED_SLUG;
+  }
+
+  // The Unfiled tray is a real matter (created lazily on first use) so unfiled
+  // documents are still fully chattable/searchable like everything else.
+  async function ensureUnfiled() {
+    if (state.matters.some(function (m) { return m.slug === UNFILED_SLUG; })) return;
+    try {
+      await api("/matters", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: UNFILED_NAME }),
+      });
+    } catch (e) { /* already exists */ }
+    await fillMatterPickers();
+  }
+
+  async function uploadToDest(files) {
+    var err = document.getElementById("hub-err");
+    if (err) err.textContent = "";
+    var dest = (document.getElementById("hub-dest") || {}).value || UNFILED_SLUG;
+    if (dest === UNFILED_SLUG) await ensureUnfiled();
+    var isTranscript = !!(document.getElementById("hub-upload-transcript") || {}).checked;
+    for (var i = 0; i < files.length; i++) {
+      var f = files[i];
+      try {
+        await fetch("/kb/upload?matter=" + encodeURIComponent(dest) +
+                    "&filename=" + encodeURIComponent(f.name) +
+                    (isTranscript ? "&doc_type=transcript" : ""), { method: "POST", body: f })
+          .then(function (r) { if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail); }); });
+      } catch (e) { if (err) err.textContent = e.message; }
+    }
+    refreshHubHome();
+  }
+
+  async function moveDoc(docId, matter) {
+    try {
+      await api("/kb/documents/move", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doc_id: parseInt(docId, 10), matter: matter }),
+      });
+    } catch (e) { alert(e.message); }
+    if (mattersState.open) refreshMatterDocs();
+    else refreshHubHome();
+  }
+
+  function moveSelectHtml(d) {
+    var opts = "<option value=''>Move to…</option>" +
+      state.matters.filter(function (m) { return m.slug !== d.matter_slug; })
+        .map(function (m) {
+          return "<option value='" + esc(m.slug) + "'>" + esc(m.display_name) + "</option>";
+        }).join("");
+    return "<select class='move-doc' data-doc='" + d.id + "' style='width:auto;max-width:150px;" +
+      "padding:5px 8px;font-size:12.5px'>" + opts + "</select>";
+  }
+
+  function wireDocRowActions(scope) {
+    scope.querySelectorAll("[data-view-doc]").forEach(function (b) {
+      b.onclick = function () { window.open("/kb/source/" + b.dataset.viewDoc, "_blank"); };
+    });
+    scope.querySelectorAll("[data-del-doc]").forEach(function (b) {
+      b.onclick = async function () {
+        if (!confirm("Remove this document from the knowledge base?")) return;
+        try { await api("/kb/documents/" + b.dataset.delDoc, { method: "DELETE" }); }
+        catch (e) { alert(e.message); }
+        if (mattersState.open) refreshMatterDocs(); else refreshHubHome();
+      };
+    });
+    scope.querySelectorAll("[data-digest-doc]").forEach(function (b) {
+      b.onclick = function () { runDigest(b.dataset.digestDoc); };
+    });
+    scope.querySelectorAll(".move-doc").forEach(function (sel) {
+      sel.addEventListener("change", function () {
+        if (sel.value) moveDoc(sel.dataset.doc, sel.value);
+      });
+    });
+    scope.querySelectorAll("tr[draggable]").forEach(function (tr) {
+      tr.addEventListener("dragstart", function (e) {
+        e.dataTransfer.setData("text/plain", tr.dataset.doc);
+        e.dataTransfer.effectAllowed = "move";
+      });
+    });
+  }
+
+  async function refreshUnfiled() {
+    var tbody = document.getElementById("unfiled-rows");
+    if (!tbody) return;
+    var hasUnfiled = state.matters.some(function (m) { return m.slug === UNFILED_SLUG; });
+    var docs = [];
+    if (hasUnfiled) {
+      try { docs = (await api("/kb/documents?matter=" + UNFILED_SLUG)).documents || []; }
+      catch (e) { docs = []; }
+    }
+    tbody.innerHTML = docs.length ? docs.map(function (d) {
+      var size = d.size_bytes != null ? Math.max(1, Math.round(d.size_bytes / 1024)) + " KB" : "—";
+      var kind = d.doc_type === "transcript" ? " <span class='muted'>(transcript)</span>" : "";
+      return "<tr draggable='true' data-doc='" + d.id + "' class='doc-row'><td>" + esc(d.filename) + kind +
+        "</td><td>" + size + "</td><td><span class='status " + esc(d.status) + "'>" + esc(d.status) +
+        "</span></td><td>" + moveSelectHtml(d) + " " +
+        "<button class='btn secondary' data-view-doc='" + d.id + "'>view</button> " +
+        "<button class='btn secondary' data-del-doc='" + d.id + "'>delete</button></td></tr>";
+    }).join("") : "<tr><td colspan='4' class='muted'>Nothing unfiled — uploads without a matter land here.</td></tr>";
+    wireDocRowActions(tbody);
+  }
+
+  function renderMatterCards() {
+    var box = document.getElementById("matter-cards");
+    if (!box) return;
+    var matters = state.matters.filter(function (m) { return m.slug !== UNFILED_SLUG; });
+    box.innerHTML = matters.length ? matters.map(function (m) {
+      return "<div class='matter-card' data-slug='" + esc(m.slug) + "'>" +
+        "<span class='mc-name'>" + esc(m.display_name) + "</span>" +
+        "<span class='mc-meta'>" + m.doc_count + " document" + (m.doc_count === 1 ? "" : "s") +
+        (m.sample ? " · sample" : "") + "</span></div>";
+    }).join("") : "<p class='muted' style='font-size:13px'>No matters yet — create one above, " +
+                  "then drag unfiled documents onto it.</p>";
+    box.querySelectorAll(".matter-card").forEach(function (card) {
+      card.addEventListener("click", function () { openMatter(card.dataset.slug); });
+      card.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        card.classList.add("drop-target");
+      });
+      card.addEventListener("dragleave", function () { card.classList.remove("drop-target"); });
+      card.addEventListener("drop", function (e) {
+        e.preventDefault();
+        card.classList.remove("drop-target");
+        var id = e.dataTransfer.getData("text/plain");
+        if (id) moveDoc(id, card.dataset.slug);
+      });
     });
   }
 
@@ -435,14 +581,14 @@
     var m = null;
     state.matters.forEach(function (x) { if (x.slug === slug) m = x; });
     setActiveMatter(slug, m ? m.display_name : slug);
-    showView("matters");   // the hook renders the detail
+    showView("hub");   // the hook renders the drawer (matter detail)
   }
   window.openMatter = openMatter;
 
   function closeMatter() {
     mattersState.open = null;
     mattersState.builtFor = null;
-    refreshMattersView();
+    refreshHubView();
   }
 
   function showMatterDetail(slug) {
@@ -453,15 +599,19 @@
       state.matters.forEach(function (x) { if (x.slug === slug) m = x; });
       var name = m ? m.display_name : slug;
       detail.innerHTML =
-        "<a href='#' class='back-link' id='matter-back'>&larr; All matters</a>" +
+        "<a href='#' class='back-link' id='matter-back'>&larr; Document Hub</a>" +
         "<h1>" + esc(name) + "</h1>" +
         "<div class='tool-row'>" +
         "<button class='btn' data-tool='chat'>Ask about this matter</button>" +
         "<button class='btn secondary' data-tool='clauses'>Contract review</button>" +
         "<button class='btn secondary' data-tool='grid'>Compare documents</button>" +
+        "<span style='flex:1'></span>" +
+        "<button class='btn secondary' id='matter-hold'>hold</button>" +
+        "<button class='btn secondary' id='matter-export'>export</button>" +
+        "<button class='btn secondary' id='matter-dispose'>dispose</button>" +
         "</div>" +
         "<div id='matter-dropzone' class='panel' style='border:2px dashed var(--border);text-align:center;padding:28px;cursor:pointer'>" +
-        "Drag &amp; drop files here, or click to choose. <span class='muted'>(.pdf .docx .txt .md)</span>" +
+        "Drag &amp; drop files here, or click to choose. <span class='muted'>(.pdf .docx .txt .md .eml)</span>" +
         "<input type='file' id='matter-file-input' multiple style='display:none'></div>" +
         "<label class='muted' style='display:block;font-size:13px;margin:2px 0 8px'>" +
         "<input type='checkbox' id='upload-transcript'> These are deposition/hearing transcripts " +
@@ -482,6 +632,39 @@
           else openReviewTab(b.dataset.tool);
         });
       });
+      // Retention actions (Move 4, D-72): hold toggles (with reasons), export
+      // downloads the complete matter file, dispose double-confirms and downloads
+      // the honest Certificate of Disposition. Holds block dispose + deletes (409s).
+      document.getElementById("matter-hold").addEventListener("click", async function () {
+        var st = await api("/retention/" + slug + "/status");
+        if (st.hold) {
+          var why = prompt("Active hold: " + st.hold.reason + "\nRelease reason (cancel to keep the hold):");
+          if (why) await api("/retention/" + slug + "/release", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: why }) });
+        } else {
+          var reason = prompt("Place a legal hold. Reason:");
+          if (reason) await api("/retention/" + slug + "/hold", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: reason }) });
+        }
+      });
+      document.getElementById("matter-export").addEventListener("click", function () {
+        window.open("/retention/" + slug + "/export", "_blank");
+      });
+      document.getElementById("matter-dispose").addEventListener("click", async function () {
+        if (!confirm("Dispose of this matter? Export the complete file FIRST if you have not. " +
+                     "This removes its documents, index, and chat history from this computer.")) return;
+        if (!confirm("Final confirmation: dispose of '" + slug + "' now?")) return;
+        try {
+          var cert = await api("/retention/" + slug + "/dispose?confirm=true", { method: "POST" });
+          var blob = new Blob([JSON.stringify(cert, null, 2)], { type: "application/json" });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url; a.download = "certificate-of-disposition-" + slug + ".json";
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+          alert("Disposed. Certificate downloaded. Method: " + cert.method);
+        } catch (e) { alert(e.message); }
+        closeMatter();
+        fillMatterPickers();
+      });
       var dz = document.getElementById("matter-dropzone");
       var fi = document.getElementById("matter-file-input");
       dz.addEventListener("click", function () { fi.click(); });
@@ -498,19 +681,21 @@
   }
 
   // Ingest progress line (Move 0c): queue depth + in-flight stage, from the worker.
+  // Painted into whichever status slots exist (hub home + matter detail).
   async function refreshIngestStatus() {
-    var el = document.getElementById("matter-ingest-status");
-    if (!el) return;
+    var els = [document.getElementById("hub-ingest-status"),
+               document.getElementById("matter-ingest-status")].filter(Boolean);
+    if (!els.length) return;
+    var text = "";
     try {
       var s = await api("/kb/ingest/status");
       if (s.queue_depth > 0 || s.current) {
         var cur = s.current ? ("processing #" + esc(s.current.doc_id) + " (" +
           esc(s.current.stage) + ")") : "starting next";
-        el.textContent = "Ingest: " + s.queue_depth + " waiting, " + cur + ".";
-      } else {
-        el.textContent = "";
+        text = "Ingest: " + s.queue_depth + " waiting, " + cur + ".";
       }
-    } catch (e) { el.textContent = ""; }
+    } catch (e) { text = ""; }
+    els.forEach(function (el) { el.textContent = text; });
   }
 
   async function refreshMatterDocs() {
@@ -528,24 +713,12 @@
       return "<tr><td>" + esc(d.filename) + kind + "</td><td>" + size +
         "</td><td><span class='status " + esc(d.status) + "'>" +
         esc(d.status) + "</span></td><td class='muted'>" + esc((d.updated || "").replace("T", " ")) +
-        "</td><td><button class='btn secondary' data-view-doc='" + d.id + "'>view</button> " +
+        "</td><td>" + moveSelectHtml(d) + " " +
+        "<button class='btn secondary' data-view-doc='" + d.id + "'>view</button> " +
         digestBtn +
         "<button class='btn secondary' data-del-doc='" + d.id + "'>delete</button></td></tr>";
     }).join("") : "<tr><td colspan='5' class='muted'>No documents yet — drop files above.</td></tr>";
-
-    tbody.querySelectorAll("[data-view-doc]").forEach(function (b) {
-      b.onclick = function () { window.open("/kb/source/" + b.dataset.viewDoc, "_blank"); };
-    });
-    tbody.querySelectorAll("[data-del-doc]").forEach(function (b) {
-      b.onclick = async function () {
-        if (!confirm("Remove this document from the knowledge base?")) return;
-        await api("/kb/documents/" + b.dataset.delDoc, { method: "DELETE" });
-        refreshMatterDocs();
-      };
-    });
-    tbody.querySelectorAll("[data-digest-doc]").forEach(function (b) {
-      b.onclick = function () { runDigest(b.dataset.digestDoc); };
-    });
+    wireDocRowActions(tbody);
   }
 
   async function refreshMatterThreads() {
@@ -639,17 +812,18 @@
     refreshMatterDocs();
   }
 
-  function mattersHook() {
-    ensureBuilt("matters", buildMatters);
-    refreshMattersView();
+  function hubHook() {
+    ensureBuilt("hub", buildHub);
+    refreshHubView();
     if (mattersState.timer) clearInterval(mattersState.timer);
     mattersState.timer = setInterval(function () {
-      var active = document.getElementById("view-matters").classList.contains("active");
-      if (active && mattersState.open) refreshMatterDocs();
-      else if (!active) { clearInterval(mattersState.timer); mattersState.timer = null; }
+      var active = document.getElementById("view-hub").classList.contains("active");
+      if (!active) { clearInterval(mattersState.timer); mattersState.timer = null; return; }
+      if (mattersState.open) { refreshMatterDocs(); refreshIngestStatus(); }
+      else { refreshUnfiled(); refreshIngestStatus(); }
     }, 2000);
   }
-  window.viewHooks.matters = mattersHook;
+  window.viewHooks.hub = hubHook;
 
   // --- Chat view ---------------------------------------------------------------
   // renderAnswerHtml(body) -> HTML string for an assistant turn. Always escapes model
@@ -780,15 +954,15 @@
     if (!state.matters.length) {
       box.innerHTML =
         "<div class='panel guide'><b>Get to your first cited answer</b><ol>" +
-        "<li><a href='#' data-goto='matters'>Create a matter</a> (the private case file for a client or case)</li>" +
-        "<li>Drop its documents into the matter and wait for Ready</li>" +
-        "<li>Come back here and ask a question about them</li></ol>" +
+        "<li><a href='#' data-goto='hub'>Open the Document Hub</a> and drop a document in</li>" +
+        "<li>Wait for it to show Ready (file it into a matter if you like)</li>" +
+        "<li>Come back here and ask a question about it</li></ol>" +
         "<p class='muted'>A sample matter with synthetic documents is being prepared in the " +
         "background and will appear here when ready.</p></div>";
     } else if (active && active.doc_count === 0) {
       box.innerHTML =
         "<div class='panel guide'><b>" + esc(active.display_name) + "</b> has no documents yet. " +
-        "<a href='#' data-goto='matters' data-open-matter='" + esc(active.slug) + "'>Add documents</a>, " +
+        "<a href='#' data-goto='hub' data-open-matter='" + esc(active.slug) + "'>Add documents</a>, " +
         "wait for Ready, then ask.</div>";
     } else if (active && active.sample && (active.suggested_questions || []).length) {
       box.innerHTML =
@@ -835,8 +1009,8 @@
     var q = input.value.trim();
     if (!q) return;
     if (!state.matter) {
-      appendMsg("system", "<i>Create a matter first — open <a href='#' " +
-        "onclick=\"showView('matters');return false\">Matters</a> to add one.</i>");
+      appendMsg("system", "<i>Add a document first — open the <a href='#' " +
+        "onclick=\"showView('hub');return false\">Document Hub</a> to upload one.</i>");
       return;
     }
     input.value = "";
@@ -894,31 +1068,9 @@
         pending.innerHTML = window.renderAnswerHtml(done);
       }
       box.scrollTop = box.scrollHeight;
-      refreshThreadRail();
     } catch (e) { pending.innerHTML = "<span style='color:var(--err)'>" + esc(e.message) + "</span>"; }
   }
   window.sendChat = sendChat;
-
-  // Past conversations rail (UX-2): history lives NEXT TO the chat, not two nav items
-  // away. Click any past conversation to reopen it and build on it.
-  async function refreshThreadRail() {
-    var listEl = document.getElementById("thread-list");
-    if (!listEl) return;
-    var threads = [];
-    try { threads = (await api("/chat/threads")).threads || []; } catch (e) { threads = []; }
-    listEl.innerHTML = threads.length
-      ? threads.slice(0, 30).map(function (t) {
-          var cls = "thread-item" + (String(t.id) === String(state.threadId) ? " active" : "");
-          return "<button class='" + cls + "' data-thread='" + t.id + "'>" +
-            "<span class='t-title'>" + esc(t.title) + "</span>" +
-            "<span class='t-meta'>" + esc(t.matter_slug) + " · " +
-            esc((t.updated || "").replace("T", " ").slice(0, 16)) + "</span></button>";
-        }).join("")
-      : "<span class='muted' style='font-size:12px'>No conversations yet.</span>";
-    listEl.querySelectorAll("[data-thread]").forEach(function (b) {
-      b.addEventListener("click", function () { openThread(b.dataset.thread); });
-    });
-  }
 
   async function openThread(id) {
     var msgs = (await api("/chat/threads/" + id)).messages || [];
@@ -932,7 +1084,6 @@
         answer_text: m.content, citations: m.citations_json ? JSON.parse(m.citations_json) : [],
       }));
     });
-    refreshThreadRail();
   }
   window.openThread = openThread;
 
@@ -941,21 +1092,15 @@
     var box = document.getElementById("chat-messages");
     if (box) box.innerHTML = "";
     renderChatGuide();
-    refreshThreadRail();
   }
 
+  // UX-7 (owner-directed): a single conversation pane — history is its own nav tab.
   function buildChat(inner) {
     inner.innerHTML =
-      "<div class='chat-layout'>" +
-      "<aside class='chat-rail'>" +
-      "<button class='btn secondary' id='chat-new'>＋ New chat</button>" +
-      "<span class='rail-label'>Past conversations</span>" +
-      "<div id='thread-list' class='thread-list'></div>" +
-      "</aside>" +
-      "<div class='chat-main'>" +
       "<div class='chat-head'>" +
       "<span class='field-label'>Matter</span>" +
       "<select class='matter-picker' id='chat-matter'></select>" +
+      "<button class='btn secondary' id='chat-new'>＋ New chat</button>" +
       "</div>" +
       "<div id='chat-messages' class='chat-messages'></div>" +
       "<div class='chat-composer-wrap'>" +
@@ -965,7 +1110,7 @@
       "<div class='chat-composer'>" +
       "<textarea id='chat-input' rows='1' placeholder='Ask anything about this matter&#39;s documents…'></textarea>" +
       "<button class='btn' id='chat-send'>Ask&nbsp;→</button>" +
-      "</div></div></div>";
+      "</div></div>";
     document.getElementById("chat-matter").addEventListener("change", function (e) {
       var opt = e.target.selectedOptions[0];
       setActiveMatter(e.target.value, opt ? opt.textContent : null);
@@ -981,9 +1126,27 @@
     ensureBuilt("chat", buildChat);
     updateGreeting();
     fillMatterPickers().then(renderChatGuide).catch(function () {});
-    refreshThreadRail();
   }
   window.viewHooks.chat = chatHook;
+
+  // --- Chat History view (UX-7, owner-directed: its own nav tab) ---------------
+  async function renderHistory() {
+    var inner = document.querySelector("#view-history .view-inner");
+    var threads = [];
+    try { threads = (await api("/chat/threads")).threads || []; } catch (e) { threads = []; }
+    inner.innerHTML = "<h1>Chat History</h1>" + (threads.length
+      ? "<div class='panel'><table><thead><tr><th>Conversation</th><th>Matter</th><th>Updated</th></tr></thead><tbody>" +
+        threads.map(function (t) {
+          return "<tr style='cursor:pointer' data-thread='" + t.id + "'><td>" + esc(t.title) +
+            "</td><td class='muted'>" + esc(t.matter_slug) + "</td><td class='muted'>" +
+            esc((t.updated || "").replace("T", " ")) + "</td></tr>";
+        }).join("") + "</tbody></table></div>"
+      : "<p class='muted'>No conversations yet — ask something in Chat.</p>");
+    inner.querySelectorAll("[data-thread]").forEach(function (tr) {
+      tr.addEventListener("click", function () { openThread(tr.dataset.thread); });
+    });
+  }
+  window.viewHooks.history = renderHistory;
 
   // --- Search view (Move 1c) ---------------------------------------------------
   // Retrieval-only: every result is a real chunk with filename + page. "Every mention"
@@ -1031,34 +1194,8 @@
     } catch (e) { out.innerHTML = "<span style='color:var(--err)'>" + esc(e.message) + "</span>"; }
   }
 
-  function buildSearch(inner) {
-    inner.innerHTML =
-      "<h1>Search</h1>" +
-      "<p class='muted'>Every mention is exhaustive: the full list of matching passages in the active matter, " +
-      "not a top-5. No AI answering here — just your documents.</p>" +
-      "<div class='panel' style='display:flex;gap:8px;align-items:center'>" +
-      "<select class='matter-picker' id='search-matter' style='max-width:280px'></select>" +
-      "<input id='search-input' type='text' placeholder='A name, amount, defined term, case number…' style='flex:1'>" +
-      "<select id='search-mode' style='max-width:170px'>" +
-      "<option value='mentions'>Every mention</option><option value='fts'>Best match</option></select>" +
-      "<button class='btn' id='search-go'>Search</button></div>" +
-      "<div id='search-err' style='color:var(--err);font-size:13px'></div>" +
-      "<div id='search-results'></div>";
-    document.getElementById("search-matter").addEventListener("change", function (e) {
-      var opt = e.target.selectedOptions[0];
-      setActiveMatter(e.target.value, opt ? opt.textContent : null);
-    });
-    document.getElementById("search-go").addEventListener("click", function () { runSearch(true); });
-    document.getElementById("search-input").addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { e.preventDefault(); runSearch(true); }
-    });
-  }
-
-  function searchHook() {
-    ensureBuilt("search", buildSearch);
-    fillMatterPickers().catch(function () {});
-  }
-  window.viewHooks.search = searchHook;
+  // (The Search view was folded into the Document Hub's "Find in documents" panel
+  // per owner direction — runSearch/searchState above are driven from there.)
 
   // --- Settings view (UX-6): Profile | Connectors | Memory | System -----------
   var settingsState = { tab: "profile" };
@@ -1653,6 +1790,58 @@
   // review view now (viewHooks.clauses / viewHooks.grid callers land there).
   window.viewHooks.clauses = function () { openReviewTab("clauses"); };
   window.viewHooks.grid = function () { openReviewTab("grid"); };
+
+  // --- Billing view (UX-7) -----------------------------------------------------
+  // Honest by construction: there is no payment system yet, so this page reports
+  // the real plan (free pilot) and reserves the slot where licensing will live.
+  // No fake Upgrade buttons, ever.
+  function buildBilling(inner) {
+    inner.innerHTML =
+      "<h1>Billing</h1>" +
+      "<p class='muted'>Active plan</p>" +
+      "<div class='panel plan-card'>" +
+      "<div><span class='plan-name'>Pilot</span> <span class='plan-badge'>Free</span>" +
+      "<p class='muted' style='margin:8px 0 0;max-width:52ch'>You are on the pilot build. " +
+      "Everything runs on your own computer, so there is nothing to meter and nothing to bill. " +
+      "Every feature is included: cited answers, transcripts, contract review, comparison, " +
+      "watched folders, encryption at rest.</p></div>" +
+      "</div>" +
+      "<div class='panel'><b>What happens later</b>" +
+      "<p class='muted' style='font-size:13.5px'>docuchat will be licensed like professional desktop " +
+      "software: buy once on the website, paste a license key here, and it works offline. No " +
+      "subscription meter is running on this machine. When licensing ships, this page holds your " +
+      "key and your receipt. Pricing is being finalized.</p></div>";
+  }
+  window.viewHooks.billing = function () { ensureBuilt("billing", buildBilling); };
+
+  // --- Referrals view (UX-7) -----------------------------------------------------
+  function buildReferrals(inner) {
+    var link = "https://docuchat.app";
+    inner.innerHTML =
+      "<h1>Referrals</h1>" +
+      "<div class='panel'>" +
+      "<h2 style='font-family:var(--serif);font-weight:500;font-size:22px;margin:0 0 8px'>" +
+      "Know another attorney drowning in documents?</h2>" +
+      "<p class='muted' style='margin:0 0 14px'>Send them docuchat. It is private by construction: " +
+      "their client files never leave their computer.</p>" +
+      "<div style='display:flex;gap:8px;max-width:520px'>" +
+      "<input type='text' id='ref-link' value='" + link + "' readonly>" +
+      "<button class='btn' id='ref-copy'>Copy link</button></div>" +
+      "<span id='ref-copied' class='muted' style='font-size:12.5px'></span>" +
+      "</div>" +
+      "<div class='panel'><b>Referral rewards</b>" +
+      "<p class='muted' style='font-size:13.5px'>A referral program with rewards arrives together " +
+      "with licensing on the website. Shares from this page count from day one; nothing about " +
+      "you or your machine is transmitted by copying the link.</p></div>";
+    document.getElementById("ref-copy").addEventListener("click", async function () {
+      var input = document.getElementById("ref-link");
+      input.select();
+      try { await navigator.clipboard.writeText(input.value); }
+      catch (e) { document.execCommand("copy"); }
+      document.getElementById("ref-copied").textContent = "Copied.";
+    });
+  }
+  window.viewHooks.referrals = function () { ensureBuilt("referrals", buildReferrals); };
 
   // --- router ----------------------------------------------------------------
   function showView(name) {

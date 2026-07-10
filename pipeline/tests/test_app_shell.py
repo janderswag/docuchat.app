@@ -17,11 +17,13 @@ import api  # noqa: E402
 
 client = TestClient(api.app)
 
-# UX-2 IA: five destinations. Documents live INSIDE matters (no Document Hub);
-# past conversations live in a rail inside Chat (no Chat History nav item);
-# Contract Review + Compare Documents are tabs of Review & Compare.
-NAV_LABELS = ["Matters", "Chat", "Search", "Review &amp; Compare", "Settings"]
-REMOVED_LABELS = ["New Chat", "Document Hub", "Chat History"]
+# UX-7 IA (owner-directed): Chat / Chat History / Document Hub / Review & Compare /
+# Settings, with Billing + Referrals pinned at the bottom. The Document Hub is the
+# filing cabinet (upload anything -> Unfiled -> drag into a matter); the exhaustive
+# Search moved inside it as "Find in documents".
+NAV_LABELS = ["Chat", "Chat History", "Document Hub", "Review &amp; Compare",
+              "Settings", "Billing", "Referrals"]
+REMOVED_LABELS = ["New Chat", "Matters", "Search"]
 # Anything that would pull a remote asset at runtime (CDN, web font, remote script).
 _EXTERNAL = re.compile(r"""(?:src|href)\s*=\s*["']https?://|@import\s+url\(\s*["']?https?://""",
                        re.IGNORECASE)
