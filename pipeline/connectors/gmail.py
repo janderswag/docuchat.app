@@ -75,7 +75,11 @@ def _label_name(creds):
 
 def _connect(creds):
     try:
-        conn = imaplib.IMAP4_SSL(HOST)
+        # Verify the server certificate + hostname. IMAP4_SSL with no context
+        # falls back to an UNVERIFIED context (CERT_NONE), which would let a
+        # network MITM present any cert, capture the app password, and read the
+        # mailbox. create_default_context() = CERT_REQUIRED + check_hostname.
+        conn = imaplib.IMAP4_SSL(HOST, ssl_context=ssl.create_default_context())
     except (OSError, ssl.SSLError):
         raise connectors.ConnectorUnavailable(
             "could not reach Gmail (imap.gmail.com) — check the internet "

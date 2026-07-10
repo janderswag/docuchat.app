@@ -40,8 +40,11 @@ def _job_update(conn_id, **kw):
 
 
 def _safe_name(name, fallback):
+    # BOTH the vendor filename AND the fallback pass through the KB sanitizer
+    # (basename only; rejects separators + traversal). A vendor-controlled
+    # source id in the fallback must never reach a path unsanitized.
     from routes_kb import _safe_name as kb_safe
-    return kb_safe(name) or fallback
+    return kb_safe(name) or kb_safe(fallback) or "import.txt"
 
 
 def _ensure_matter(slug):

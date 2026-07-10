@@ -63,7 +63,12 @@ def _auth(creds):
 
 def _dav_root(creds):
     base = creds["server_url"].strip().rstrip("/")
-    if not base.startswith(("http://", "https://")):
+    # Force HTTPS: WebDAV Basic auth sends the app password on every request, so
+    # a plain-http server URL (or a typo'd one) would leak it in cleartext. An
+    # explicit http:// is upgraded rather than honored.
+    if base.startswith("http://"):
+        base = "https://" + base[len("http://"):]
+    elif not base.startswith("https://"):
         base = "https://" + base
     return f"{base}/remote.php/dav/files/{quote(creds['username'].strip())}"
 

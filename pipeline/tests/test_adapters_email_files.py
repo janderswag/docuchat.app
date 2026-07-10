@@ -65,8 +65,9 @@ class FakeIMAP:
         self.selects = []           # (mailbox, readonly)
         self.logged_out = False
 
-    def __call__(self, host):       # stands in for the IMAP4_SSL class
+    def __call__(self, host, ssl_context=None):  # stands in for IMAP4_SSL
         self.host = host
+        self.ssl_context = ssl_context
         return self
 
     def login(self, user, password):
@@ -146,6 +147,18 @@ class TestGmail(unittest.TestCase):
         self.assertIn("docuchat", label)
         self.assertTrue(fake.logged_out)
 
+    def test_tls_context_verifies_cert_and_hostname(self):
+        # Regression: IMAP4_SSL with no context accepts ANY cert (CERT_NONE),
+        # leaking the app password to a network MITM. We must pass a verifying
+        # context before the app password is ever sent.
+        import ssl
+        fake = FakeIMAP()
+        with self._patch(fake):
+            self._mod().test(self.CREDS)
+        self.assertIsInstance(fake.ssl_context, ssl.SSLContext)
+        self.assertEqual(fake.ssl_context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(fake.ssl_context.check_hostname)
+
     def test_missing_label_is_access_error(self):
         fake = FakeIMAP()
         with self._patch(fake):
@@ -159,7 +172,7 @@ class TestGmail(unittest.TestCase):
                 self._mod().test(dict(self.CREDS, app_password="wrong"))
 
     def test_connection_failure_maps_to_unavailable(self):
-        def boom(host):
+        def boom(host, ssl_context=None):
             raise OSError("network unreachable")
         with mock.patch.object(self._mod().imaplib, "IMAP4_SSL", boom):
             with self.assertRaises(connectors.ConnectorUnavailable):
