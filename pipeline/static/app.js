@@ -115,10 +115,30 @@
   // the product does not use.
   state.profile = {};
 
+  var photoVer = 0;   // cache-buster for /profile/photo after an upload
+
   async function loadProfile() {
     try { state.profile = await api("/profile"); } catch (e) { state.profile = {}; }
     updateGreeting();
+    refreshSidebarProfile();
     return state.profile;
+  }
+
+  // Sidebar profile block (UX-6): the user's avatar + first name once known, the
+  // app identity until then. There is deliberately NO sign-out — no account exists.
+  function refreshSidebarProfile() {
+    var nameEl = document.getElementById("side-name");
+    var av = document.getElementById("side-avatar");
+    if (!nameEl || !av) return;
+    var name = ((state.profile && state.profile.name) || "").trim();
+    nameEl.textContent = name || "Legal Document Chat";
+    if (state.profile && state.profile.has_photo) {
+      av.innerHTML = "<img src='/profile/photo?v=" + photoVer + "' alt=''>";
+    } else if (name) {
+      av.textContent = name[0].toUpperCase();
+    } else {
+      av.textContent = "§";
+    }
   }
 
   function updateGreeting() {
@@ -214,6 +234,7 @@
       body: JSON.stringify(vals),
     });
     updateGreeting();
+    refreshSidebarProfile();
     if (document.getElementById("chat-guide")) renderChatGuide();
   }
 
@@ -225,9 +246,14 @@
     if (document.getElementById("onboard-overlay")) return;
     var ov = document.createElement("div");
     ov.id = "onboard-overlay";
+    function dots(n) {
+      return "<div class='step-dots'>" + [1, 2, 3].map(function (i) {
+        return "<span class='dot" + (i === n ? " on" : "") + "'></span>";
+      }).join("") + "</div>";
+    }
     ov.innerHTML =
       "<div class='onboard-card'>" +
-      "<div class='onboard-step' data-step='1'>" +
+      "<div class='onboard-step' data-step='1'>" + dots(1) +
       "<h2>Everything stays on this machine.</h2>" +
       "<p>docuchat runs entirely on your computer. Your documents never leave it. " +
       "No cloud, no account, no telemetry.</p>" +
@@ -235,7 +261,7 @@
       "<div class='onboard-actions'><button class='btn' data-next='2'>Set up in 30 seconds</button>" +
       "<a href='#' class='onboard-skip'>Skip</a></div>" +
       "</div>" +
-      "<div class='onboard-step' data-step='2' style='display:none'>" +
+      "<div class='onboard-step' data-step='2' style='display:none'>" + dots(2) +
       "<h2>A few basics</h2>" +
       "<label class='field-label'>What should we call you? (optional)</label>" +
       "<input type='text' id='onboard-name' placeholder='First name' style='margin-top:6px'>" +
@@ -244,16 +270,18 @@
       "<p class='muted' style='font-size:12px;margin-top:12px'>Stored only in a local file on this " +
       "computer. Change anytime in Settings.</p>" +
       "<div class='onboard-actions'><button class='btn' data-next='3'>Continue</button>" +
+      "<a href='#' class='onboard-back' data-back='1'>Back</a>" +
       "<a href='#' class='onboard-skip'>Skip</a></div>" +
       "</div>" +
-      "<div class='onboard-step' data-step='3' style='display:none'>" +
+      "<div class='onboard-step' data-step='3' style='display:none'>" + dots(3) +
       "<h2>How to trust the answers</h2>" +
       "<p>docuchat answers only from your documents. Every claim is cited to the exact page " +
       "and passage, and each citation is mechanically checked against the source text before " +
       "it reaches you. If the documents do not support an answer, it says so.</p>" +
       "<p><b>AI can still misread context.</b> Verify citations before you rely on them. " +
       "This is a research assistant, not legal advice.</p>" +
-      "<div class='onboard-actions'><button class='btn' id='onboard-done'>Start</button></div>" +
+      "<div class='onboard-actions'><button class='btn' id='onboard-done'>Start</button>" +
+      "<a href='#' class='onboard-back' data-back='2'>Back</a></div>" +
       "</div></div>";
     document.body.appendChild(ov);
     renderAreaChips(document.getElementById("onboard-areas"),
@@ -263,9 +291,19 @@
       ov.querySelectorAll(".onboard-step").forEach(function (s) {
         s.style.display = s.dataset.step === String(n) ? "" : "none";
       });
+      if (String(n) === "2") {
+        var nameInput = document.getElementById("onboard-name");
+        if (nameInput) setTimeout(function () { nameInput.focus(); }, 0);
+      }
     }
     ov.querySelectorAll("[data-next]").forEach(function (b) {
       b.addEventListener("click", function () { goStep(b.dataset.next); });
+    });
+    ov.querySelectorAll("[data-back]").forEach(function (a) {
+      a.addEventListener("click", function (e) { e.preventDefault(); goStep(a.dataset.back); });
+    });
+    document.getElementById("onboard-name").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); goStep(3); }
     });
     ov.querySelectorAll(".onboard-skip").forEach(function (a) {
       a.addEventListener("click", function (e) {
@@ -1022,15 +1060,261 @@
   }
   window.viewHooks.search = searchHook;
 
-  // --- Settings view ---------------------------------------------------------
-  async function renderSettings() {
-    var inner = document.querySelector("#view-settings .view-inner");
-    var s = null;
-    try { s = await api("/settings/status"); } catch (e) { s = null; }
-    if (!s) { inner.innerHTML = "<h1>Settings</h1><p class='muted'>Status unavailable.</p>"; return; }
-    var local = s.egress === "loopback-only" && s.bind === "127.0.0.1";
+  // --- Settings view (UX-6): Profile | Connectors | Memory | System -----------
+  var settingsState = { tab: "profile" };
+
+  function buildSettings(inner) {
     inner.innerHTML =
       "<h1>Settings</h1>" +
+      "<div class='tab-row' id='settings-tabs'>" +
+      "<button class='tab active' data-stab='profile'>Profile</button>" +
+      "<button class='tab' data-stab='connectors'>Connectors</button>" +
+      "<button class='tab' data-stab='memory'>Memory</button>" +
+      "<button class='tab' data-stab='system'>System</button>" +
+      "</div>" +
+      "<div id='spane-profile'></div>" +
+      "<div id='spane-connectors' style='display:none'></div>" +
+      "<div id='spane-memory' style='display:none'></div>" +
+      "<div id='spane-system' style='display:none'></div>";
+    inner.querySelectorAll("#settings-tabs .tab").forEach(function (b) {
+      b.addEventListener("click", function () { setSettingsTab(b.dataset.stab); });
+    });
+  }
+
+  function setSettingsTab(tab) {
+    settingsState.tab = tab;
+    var view = document.getElementById("view-settings");
+    if (!view) return;
+    view.querySelectorAll("#settings-tabs .tab").forEach(function (b) {
+      b.classList.toggle("active", b.dataset.stab === tab);
+    });
+    ["profile", "connectors", "memory", "system"].forEach(function (t) {
+      var pane = document.getElementById("spane-" + t);
+      if (pane) pane.style.display = t === tab ? "" : "none";
+    });
+  }
+
+  function openSettingsTab(tab) {
+    showView("settings");
+    setSettingsTab(tab);
+  }
+  window.openSettingsTab = openSettingsTab;
+
+  function renderProfilePane() {
+    var pane = document.getElementById("spane-profile");
+    if (!pane) return;
+    var p = state.profile || {};
+    var avatarInner = p.has_photo
+      ? "<img src='/profile/photo?v=" + photoVer + "' alt=''>"
+      : esc(((p.name || "").trim()[0] || "§").toUpperCase());
+    pane.innerHTML =
+      "<div class='panel'>" +
+      "<div class='profile-photo-row'>" +
+      "<span class='avatar avatar-lg' id='profile-avatar'>" + avatarInner + "</span>" +
+      "<div><button class='btn secondary' id='photo-upload'>Upload photo</button> " +
+      (p.has_photo ? "<button class='btn secondary' id='photo-remove'>Remove</button>" : "") +
+      "<input type='file' id='photo-file' accept='image/png,image/jpeg' style='display:none'>" +
+      "<p class='muted' style='font-size:12px;margin:8px 0 0'>PNG or JPEG. Stored only on this computer.</p>" +
+      "</div></div>" +
+      "<table class='settings-form' style='margin-top:16px'>" +
+      "<tr><th>Name</th><td><input type='text' id='profile-name' placeholder='First name' value='" +
+      esc(p.name || "") + "'></td></tr>" +
+      "<tr><th>Role</th><td><input type='text' id='profile-role' placeholder='e.g. Solo attorney, Managing partner' value='" +
+      esc(p.role || "") + "'></td></tr>" +
+      "<tr><th>Firm</th><td><input type='text' id='profile-firm' placeholder='Firm or practice name' value='" +
+      esc(p.firm || "") + "'></td></tr>" +
+      "<tr><th>Practice areas</th><td><div id='profile-areas' class='chip-set'></div></td></tr>" +
+      "</table>" +
+      "<div style='margin-top:14px'><button class='btn' id='profile-save'>Save profile</button> " +
+      "<span id='profile-saved' class='muted' style='font-size:13px'></span></div>" +
+      "<p class='muted' style='font-size:12px'>Used to greet you and tailor suggested prompts. " +
+      "Stored only on this computer. It never enters a cited answer.</p>" +
+      "</div>" +
+      "<div class='danger-zone'>" +
+      "<h3>Erase all data</h3>" +
+      "<p class='muted' style='font-size:13px;margin:0 0 12px'>The local equivalent of deleting an " +
+      "account: disposes of every matter (documents, index, chats — crypto-shredded where encryption " +
+      "is active) and clears your profile. Matters under a legal hold block this until the hold is " +
+      "released. This cannot be undone.</p>" +
+      "<button class='btn danger' id='erase-all'>Erase all data…</button>" +
+      "</div>";
+    renderAreaChips(document.getElementById("profile-areas"), p.practice_areas || []);
+
+    var fileInput = document.getElementById("photo-file");
+    document.getElementById("photo-upload").addEventListener("click", function () { fileInput.click(); });
+    fileInput.addEventListener("change", async function () {
+      var f = fileInput.files[0];
+      if (!f) return;
+      try {
+        var r = await fetch("/profile/photo", { method: "POST", body: f });
+        if (!r.ok) throw new Error((await r.json()).detail || "upload failed");
+        photoVer++;
+        await loadProfile();
+        renderProfilePane();
+      } catch (e) { alert(e.message); }
+    });
+    var rm = document.getElementById("photo-remove");
+    if (rm) rm.addEventListener("click", async function () {
+      await api("/profile/photo/delete", { method: "POST" });
+      await loadProfile();
+      renderProfilePane();
+    });
+
+    document.getElementById("profile-save").addEventListener("click", async function () {
+      var saved = document.getElementById("profile-saved");
+      saved.textContent = "";
+      try {
+        await saveProfile({
+          name: document.getElementById("profile-name").value,
+          role: document.getElementById("profile-role").value,
+          firm: document.getElementById("profile-firm").value,
+          practice_areas: chipValues(document.getElementById("profile-areas")),
+        });
+        saved.textContent = "Saved.";
+      } catch (e) { saved.textContent = e.message; }
+    });
+
+    document.getElementById("erase-all").addEventListener("click", async function () {
+      var typed = prompt('This erases every matter, document, chat, and your profile ' +
+                         'from this computer. Type ERASE EVERYTHING to confirm:');
+      if (typed === null) return;
+      try {
+        var out = await api("/data/erase", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: typed }),
+        });
+        alert("Erased " + out.matters_disposed.length + " matter(s). The app will reload.");
+        location.reload();
+      } catch (e) { alert(e.message); }
+    });
+  }
+
+  async function renderConnectorsPane() {
+    var pane = document.getElementById("spane-connectors");
+    if (!pane) return;
+    var data = null;
+    try { data = await api("/connectors/folders"); } catch (e) { data = { folders: [] }; }
+    var rows = (data.folders || []).map(function (f) {
+      return "<tr><td style='word-break:break-all'>" + esc(f.path) + "</td><td class='muted'>" +
+        esc(f.matter_slug) + "</td><td><span class='folder-status " +
+        (f.exists ? "ok'>watching" : "missing'>missing") + "</span></td>" +
+        "<td><button class='btn secondary' data-rm-folder='" + f.id + "'>remove</button></td></tr>";
+    }).join("");
+    pane.innerHTML =
+      "<div class='panel'>" +
+      "<b>Watched folders</b>" +
+      "<p class='muted' style='font-size:13.5px'>docuchat is 100% local, so anything that reaches " +
+      "your disk can flow in automatically. New files dropped into a watched folder are added to " +
+      "its matter (checked every " + (data.poll_seconds || 15) + " seconds; originals are never " +
+      "moved or changed). Point one at a scanner's output folder, or at a Dropbox / Google Drive / " +
+      "OneDrive synced folder: the sync app moves the bytes, docuchat never touches the network.</p>" +
+      "<div style='display:flex;gap:8px;align-items:center;margin:12px 0'>" +
+      "<select class='matter-picker' id='folder-matter' style='max-width:240px'></select>" +
+      "<input type='text' id='folder-path' placeholder='/Users/you/Scans or a synced folder' style='flex:1'>" +
+      "<button class='btn' id='folder-add'>Watch folder</button></div>" +
+      "<div id='folder-err' style='color:var(--err);font-size:13px'></div>" +
+      (rows ? "<table style='margin-top:8px'><thead><tr><th>Folder</th><th>Matter</th><th>Status</th><th></th></tr></thead><tbody>" +
+              rows + "</tbody></table>"
+            : "<p class='muted' style='font-size:13px'>No watched folders yet.</p>") +
+      "</div>" +
+      "<div class='panel'>" +
+      "<b>What can come in</b>" +
+      "<p class='muted' style='font-size:13.5px'>PDF (born-digital and scanned), Word (.docx), " +
+      "text and Markdown, and email files (.eml — drag them straight from most mail apps). " +
+      "Deposition and hearing transcripts get page:line citations when marked as transcripts " +
+      "at upload.</p>" +
+      "<p class='muted' style='font-size:13px'>Cloud APIs (practice management, document management) " +
+      "are deliberately not built in: docuchat makes zero network calls. Anything those systems can " +
+      "export or sync to a folder on this computer can be watched.</p>" +
+      "</div>";
+    fillMatterPickers().catch(function () {});
+    document.getElementById("folder-add").addEventListener("click", async function () {
+      var err = document.getElementById("folder-err");
+      err.textContent = "";
+      var matter = document.getElementById("folder-matter").value;
+      var path = document.getElementById("folder-path").value.trim();
+      if (!matter || !path) { err.textContent = "Choose a matter and enter a folder path."; return; }
+      try {
+        await api("/connectors/folders", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matter: matter, path: path }),
+        });
+        renderConnectorsPane();
+      } catch (e) { err.textContent = e.message; }
+    });
+    pane.querySelectorAll("[data-rm-folder]").forEach(function (b) {
+      b.addEventListener("click", async function () {
+        await api("/connectors/folders/remove", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: parseInt(b.dataset.rmFolder, 10) }),
+        });
+        renderConnectorsPane();
+      });
+    });
+  }
+
+  function renderMemoryPane() {
+    var pane = document.getElementById("spane-memory");
+    if (!pane) return;
+    var p = state.profile || {};
+    var notes = p.memory_notes || [];
+    var noteRows = notes.map(function (n, i) {
+      return "<div class='memory-note'><span>" + esc(n) + "</span>" +
+        "<button class='note-x' data-note-i='" + i + "' title='Forget this'>✕</button></div>";
+    }).join("");
+    var known = [];
+    if (p.name) known.push("your name (" + esc(p.name) + ")");
+    if (p.role) known.push("your role (" + esc(p.role) + ")");
+    if (p.firm) known.push("your firm (" + esc(p.firm) + ")");
+    if ((p.practice_areas || []).length) known.push("your practice areas (" + esc(p.practice_areas.join(", ")) + ")");
+    pane.innerHTML =
+      "<div class='panel'>" +
+      "<b>What docuchat knows about you</b>" +
+      "<p class='muted' style='font-size:13.5px'>Memory here is teachable, not scraped: you write " +
+      "it, you can see all of it, and you can delete any of it. It shapes greetings and suggested " +
+      "prompts only — it NEVER enters a cited answer, so a remembered note can never contaminate " +
+      "the record or cross between matters.</p>" +
+      "<p class='muted' style='font-size:13px'>From your profile: " +
+      (known.length ? known.join("; ") + "." : "nothing yet — fill in <a href='#' id='mem-to-profile'>Profile</a>.") +
+      "</p>" +
+      "<div style='margin-top:10px'><b style='font-size:14px'>Notes you've taught it</b></div>" +
+      (noteRows || "<p class='muted' style='font-size:13px'>None yet.</p>") +
+      "<div style='display:flex;gap:8px;margin-top:12px'>" +
+      "<input type='text' id='memory-new' placeholder='e.g. I prefer short answers. Call me Jake, not Jacob.' style='flex:1'>" +
+      "<button class='btn' id='memory-add'>Remember</button></div>" +
+      "</div>";
+    var toProfile = document.getElementById("mem-to-profile");
+    if (toProfile) toProfile.addEventListener("click", function (e) {
+      e.preventDefault(); setSettingsTab("profile"); renderProfilePane();
+    });
+    pane.querySelectorAll("[data-note-i]").forEach(function (b) {
+      b.addEventListener("click", async function () {
+        var next = notes.slice();
+        next.splice(parseInt(b.dataset.noteI, 10), 1);
+        await saveProfile({ memory_notes: next });
+        renderMemoryPane();
+      });
+    });
+    function addNote() {
+      var input = document.getElementById("memory-new");
+      var v = input.value.trim();
+      if (!v) return;
+      saveProfile({ memory_notes: notes.concat([v]) }).then(renderMemoryPane);
+    }
+    document.getElementById("memory-add").addEventListener("click", addNote);
+    document.getElementById("memory-new").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); addNote(); }
+    });
+  }
+
+  async function renderSystemPane() {
+    var pane = document.getElementById("spane-system");
+    if (!pane) return;
+    var s = null;
+    try { s = await api("/settings/status"); } catch (e) { s = null; }
+    if (!s) { pane.innerHTML = "<p class='muted'>Status unavailable.</p>"; return; }
+    var local = s.egress === "loopback-only" && s.bind === "127.0.0.1";
+    pane.innerHTML =
       "<div class='panel' style='display:flex;align-items:center;gap:14px'>" +
       "<div class='privacy-badge " + (local ? "ok" : "warn") + "'>" +
       (local ? "100% local · 0 outbound" : "⚠ posture: " + esc(s.egress)) + "</div>" +
@@ -1052,34 +1336,20 @@
         esc(Object.values(s.hardening.backup_exclusions || {}).join("; ") || "n/a") +
         "</td></tr>") : "") +
       "</table></div>" +
-      "<div class='panel'><b>Profile</b>" +
-      "<table style='margin-top:8px'>" +
-      "<tr><th>Name</th><td><input type='text' id='profile-name' placeholder='First name' " +
-      "style='max-width:280px' value='" + esc((state.profile && state.profile.name) || "") + "'></td></tr>" +
-      "<tr><th>Practice areas</th><td><div id='profile-areas' class='chip-set'></div></td></tr>" +
-      "</table>" +
-      "<div style='margin-top:12px'><button class='btn' id='profile-save'>Save profile</button> " +
-      "<span id='profile-saved' class='muted' style='font-size:13px'></span></div>" +
-      "<p class='muted' style='font-size:12px'>Used to greet you and tailor suggested prompts. " +
-      "Stored only on this computer.</p></div>" +
       "<p class='muted'>Synthetic/public documents only. Backup/restore via deploy/restore.sh (SC-7).</p>";
-    renderAreaChips(document.getElementById("profile-areas"),
-                    (state.profile && state.profile.practice_areas) || []);
-    document.getElementById("profile-save").addEventListener("click", async function () {
-      var saved = document.getElementById("profile-saved");
-      saved.textContent = "";
-      try {
-        await saveProfile({
-          name: document.getElementById("profile-name").value,
-          practice_areas: chipValues(document.getElementById("profile-areas")),
-        });
-        saved.textContent = "Saved.";
-      } catch (e) { saved.textContent = e.message; }
-    });
     var badge = document.getElementById("brand-badge");
     if (badge) badge.textContent = local ? "100% local" : "review";
   }
-  window.viewHooks.settings = renderSettings;
+
+  function settingsHook() {
+    ensureBuilt("settings", buildSettings);
+    renderProfilePane();
+    renderConnectorsPane();
+    renderMemoryPane();
+    renderSystemPane();
+    setSettingsTab(settingsState.tab);
+  }
+  window.viewHooks.settings = settingsHook;
 
   // --- Review & Compare view ---------------------------------------------------
   // One workspace, two tabs (UX-2): Contract Review (the clause checklist) and
@@ -1234,16 +1504,28 @@
     var box = document.getElementById("grid-docs");
     if (!box) return;
     if (!state.matter) { box.innerHTML = "<span class='muted'>Choose a matter first.</span>"; reviewState.docsFor = null; return; }
-    if (reviewState.docsFor === state.matter) return;   // keep the user's selection
+    // Always refetch (new uploads must appear) but preserve the user's selection by
+    // doc id when the matter is unchanged; unseen docs default to checked.
+    var prev = null;
+    if (reviewState.docsFor === state.matter) {
+      prev = {};
+      box.querySelectorAll(".grid-doc").forEach(function (c) { prev[c.value] = c.checked; });
+    }
     var docs = [];
     try { docs = (await api("/kb/documents?matter=" + encodeURIComponent(state.matter))).documents || []; }
     catch (e) { docs = []; }
     reviewState.docsFor = state.matter;
     if (!docs.length) { box.innerHTML = "<span class='muted'>No documents in this matter yet — add them in Matters.</span>"; return; }
+    function isChecked(d) {
+      return (prev && String(d.id) in prev) ? prev[String(d.id)] : true;
+    }
+    var allChecked = docs.every(isChecked);
     box.innerHTML =
-      "<label><input type='checkbox' id='grid-docs-all' checked> <b>All documents</b></label>" +
+      "<label><input type='checkbox' id='grid-docs-all'" + (allChecked ? " checked" : "") +
+      "> <b>All documents</b></label>" +
       docs.map(function (d) {
-        return "<label><input type='checkbox' class='grid-doc' value='" + d.id + "' checked> " +
+        return "<label><input type='checkbox' class='grid-doc' value='" + d.id + "'" +
+          (isChecked(d) ? " checked" : "") + "> " +
           esc(d.filename) + " <span class='status " + esc(d.status) + "'>" + esc(d.status) + "</span></label>";
       }).join("");
     var all = document.getElementById("grid-docs-all");
@@ -1391,6 +1673,8 @@
     document.querySelectorAll(".nav-item").forEach(function (b) {
       b.addEventListener("click", function () { showView(b.dataset.view); });
     });
+    var pb = document.getElementById("profile-block");
+    if (pb) pb.addEventListener("click", function () { openSettingsTab("profile"); });
     fillMatterPickers().catch(function () {});
     showView("chat");
     loadProfile().then(maybeShowOnboarding).catch(function () {});

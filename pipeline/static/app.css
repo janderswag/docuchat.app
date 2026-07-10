@@ -25,38 +25,41 @@ body{font-family:var(--sans);color:var(--text);background-color:var(--bg);
   -webkit-font-smoothing:antialiased}
 #app{display:flex;height:100vh}
 
-/* Sidebar */
-#sidebar{width:248px;flex:0 0 248px;background:linear-gradient(176deg,var(--sidebar),var(--sidebar-2));
-  color:var(--side-text);display:flex;flex-direction:column;padding:18px 12px 14px;
-  border-right:1px solid rgba(0,0,0,.4)}
-.brand{display:flex;align-items:center;gap:11px;padding:4px 6px 18px}
-.brand-mark{display:inline-grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:9px;
-  background:linear-gradient(150deg,var(--accent-2),var(--accent));color:#231a09;
-  font-family:var(--serif);font-weight:600;font-size:22px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 1px 2px rgba(0,0,0,.4)}
-.brand-text{display:flex;flex-direction:column;gap:5px;min-width:0}
-.brand-name{font-size:14px;font-weight:500;line-height:1.2;letter-spacing:.1px;color:#f1ece1;white-space:nowrap}
+/* Sidebar — light warm cream, rounded pill nav (UX-6, Granola-style) */
+#sidebar{width:250px;flex:0 0 250px;background:#f7f4ec;color:var(--text);
+  display:flex;flex-direction:column;padding:16px 12px 14px;
+  border-right:1px solid var(--border)}
+.profile-block{display:flex;align-items:center;gap:11px;width:100%;background:transparent;
+  border:0;border-radius:12px;padding:8px;margin-bottom:12px;cursor:pointer;
+  text-align:left;font:inherit;transition:background .14s ease}
+.profile-block:hover{background:#efe9dc}
+.avatar{display:inline-grid;place-items:center;width:40px;height:40px;flex:0 0 40px;
+  border-radius:50%;background:linear-gradient(150deg,var(--accent-2),var(--accent));
+  color:#231a09;font-family:var(--serif);font-weight:600;font-size:19px;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 1px 2px rgba(29,27,22,.15)}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.profile-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.side-name{font-family:var(--serif);font-size:16px;font-weight:500;line-height:1.15;
+  color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand-badge{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;
   font-size:10px;letter-spacing:.4px;text-transform:uppercase;font-weight:600;
-  color:#7fe0a6;background:#11321e;border:1px solid #26603c;
+  color:var(--ok);background:#e6f0e2;border:1px solid #b6d7bf;
   padding:2.5px 8px;border-radius:999px;white-space:nowrap}
 .brand-badge::before{content:"";flex:0 0 6px;width:6px;height:6px;border-radius:50%;
-  background:#3fae6e;box-shadow:0 0 6px #3fae6e}
-#nav{display:flex;flex-direction:column;gap:1px;margin-top:6px}
-.nav-item{display:flex;align-items:center;gap:11px;background:transparent;border:0;color:var(--side-text);
-  text-align:left;padding:9px 11px;border-radius:8px;cursor:pointer;font-size:13.5px;
-  position:relative;transition:background .14s ease,color .14s ease}
-.nav-item:hover{background:var(--side-hover);color:#f1ece1}
-.nav-item.active{background:var(--accent-soft);color:#f6efe0;font-weight:500}
-.nav-item.active::before{content:"";position:absolute;left:-12px;top:7px;bottom:7px;width:3px;
-  background:var(--accent-2);border-radius:0 3px 3px 0}
+  background:#3fae6e;box-shadow:0 0 5px rgba(63,174,110,.7)}
+#nav{display:flex;flex-direction:column;gap:2px;margin-top:2px}
+.nav-item{display:flex;align-items:center;gap:11px;background:transparent;border:0;color:#4d483a;
+  text-align:left;padding:9px 11px;border-radius:10px;cursor:pointer;font-size:13.5px;
+  transition:background .14s ease,color .14s ease}
+.nav-item:hover{background:#efe9dc;color:var(--text)}
+.nav-item.active{background:#e9e1cf;color:var(--text);font-weight:600}
 .nav-ico{display:inline-grid;place-items:center;width:18px;flex:0 0 18px}
-.nav-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;opacity:.72}
-.nav-item.active .nav-ico svg{opacity:1;stroke:var(--accent-2)}
-.sidebar-foot{margin-top:auto;padding:12px 11px 4px;border-top:1px solid var(--side-line)}
-.sidebar-foot .active-matter-row{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--side-muted)}
+.nav-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;opacity:.75}
+.nav-item.active .nav-ico svg{opacity:1;stroke:#6e5220}
+.sidebar-foot{margin-top:auto;padding:12px 11px 4px;border-top:1px solid var(--border-2)}
+.sidebar-foot .active-matter-row{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint)}
 #active-matter{display:block;font-family:var(--serif);font-style:italic;font-size:15px;
-  text-transform:none;letter-spacing:0;color:#cfc7b6;margin-top:3px}
+  text-transform:none;letter-spacing:0;color:var(--text);margin-top:3px}
 
 /* Content */
 #content{flex:1;overflow:auto}
@@ -224,6 +227,25 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
   font-weight:500;text-decoration:none}
 #matter-threads a.matter-thread:hover{text-decoration:underline}
 
+/* Settings (UX-6): sectioned Profile | Connectors | Memory | System */
+.avatar-lg{width:72px;height:72px;flex:0 0 72px;font-size:30px}
+.profile-photo-row{display:flex;align-items:center;gap:16px}
+.settings-form th{width:150px;vertical-align:middle}
+.settings-form input[type=text]{max-width:340px}
+.danger-zone{border:1px solid #e7b6ab;background:#fdf6f4;border-radius:14px;
+  padding:18px 20px;margin:24px 0 8px}
+.danger-zone h3{margin:0 0 6px;font-size:15px;color:var(--err)}
+.btn.danger{background:var(--err);color:#fff;box-shadow:none;border:1px solid transparent}
+.btn.danger:hover{filter:brightness(1.06)}
+.memory-note{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;margin:6px 0;
+  background:var(--panel-2);border:1px solid var(--border);border-radius:10px;font-size:13.5px}
+.memory-note .note-x{margin-left:auto;background:transparent;border:0;color:var(--faint);
+  cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
+.memory-note .note-x:hover{color:var(--err)}
+.folder-status{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
+.folder-status.ok{background:#e6f0e2;color:var(--ok)}
+.folder-status.missing{background:#f6e2dc;color:var(--err)}
+
 /* Onboarding (UX-5): three skippable screens over the app on first run */
 #onboard-overlay{position:fixed;inset:0;background:rgba(28,27,23,.55);z-index:50;
   display:grid;place-items:center;backdrop-filter:blur(3px)}
@@ -233,7 +255,11 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
 .onboard-card h2{font-family:var(--serif);font-weight:500;font-size:25px;letter-spacing:-.2px;margin:0 0 10px}
 .onboard-card p{font-size:14.5px;line-height:1.55;margin:.5em 0}
 .onboard-actions{display:flex;align-items:center;gap:16px;margin-top:22px}
-.onboard-skip{color:var(--muted);font-size:13px}
+.onboard-skip,.onboard-back{color:var(--muted);font-size:13px}
+.step-dots{display:flex;gap:6px;margin-bottom:16px}
+.step-dots .dot{width:7px;height:7px;border-radius:50%;background:var(--border-2);
+  transition:background .15s}
+.step-dots .dot.on{background:var(--accent)}
 
 /* Practice-area chips (onboarding + Settings profile) */
 .chip-set{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}

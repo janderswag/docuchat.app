@@ -10,13 +10,16 @@
 <body>
   <div id="app">
     <aside id="sidebar">
-      <div class="brand">
-        <span class="brand-mark">§</span>
-        <span class="brand-text">
-          <span class="brand-name">Legal&nbsp;Document&nbsp;Chat</span>
+      <!-- Profile block (UX-6, Granola-style): the user's avatar + name when a
+           profile exists, the app identity before then. Click opens Settings ->
+           Profile. No sign-in/sign-out anywhere: there is no account. -->
+      <button class="profile-block" id="profile-block" title="Profile &amp; settings">
+        <span class="avatar" id="side-avatar">§</span>
+        <span class="profile-text">
+          <span class="side-name" id="side-name">Legal&nbsp;Document&nbsp;Chat</span>
           <span class="brand-badge" id="brand-badge">100% local</span>
         </span>
-      </div>
+      </button>
       <!-- UX-2 nav: five destinations. A matter is the case file — documents, chats,
            and reviews live inside it; Review & Compare are tools over a matter. -->
       <nav id="nav">
