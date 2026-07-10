@@ -391,7 +391,7 @@
           "name": "Is my data private? Does anything leave my computer?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No. The query path makes no cloud calls and needs no API keys. Your documents are never uploaded to OpenAI, Anthropic, Google, or any third party. Inference, embeddings, OCR, and storage all run locally, and the service binds to loopback (127.0.0.1) only."
+            "text": "No. The query path makes no cloud calls and needs no API keys. Your documents are never uploaded to OpenAI, Anthropic, Google, or any third party. Inference, embeddings, OCR, and storage all run locally, and the service binds to loopback (127.0.0.1) only. If you connect an import source (Gmail, Notion, Zoom, and 25 more), that connection pulls your documents IN from that service when you ask it to; nothing goes the other way, and the security page lists every call."
           }
         },
         {
