@@ -25,8 +25,7 @@ from pathlib import Path
 
 import catalog
 import keyvault
-
-APP_VERSION = "0.2.0-dev"
+from appversion import APP_VERSION
 
 
 def _now():

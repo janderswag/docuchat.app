@@ -57,6 +57,10 @@ body{font-family:var(--sans);color:var(--text);background-color:var(--bg);
 .nav-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;opacity:.75}
 .nav-item.active .nav-ico svg{opacity:1;stroke:#6e5220}
 #nav-foot{display:flex;flex-direction:column;gap:2px;margin-top:auto;padding-top:8px;padding-bottom:6px}
+.nav-item.update{color:#6e5220;font-weight:600;background:var(--accent-soft)}
+.nav-item.update:hover{background:#eadfc6}
+.nav-item.update .upd-ver{margin-left:auto;font-size:11px;font-weight:700;color:#6e5220;
+  background:#f1e6cf;border:1px solid #e2d2ab;border-radius:999px;padding:1px 7px}
 
 /* Content */
 #content{flex:1;overflow:auto}

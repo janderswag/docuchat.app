@@ -58,6 +58,7 @@ class ProfileUpdate(BaseModel):
     practice_areas: list[str] | None = None
     memory_notes: list[str] | None = None
     onboarded: bool | None = None
+    update_check: bool | None = None   # UX-8: the one non-loopback call's off switch
 
 
 def _public_profile():
@@ -95,6 +96,8 @@ def put_profile(body: ProfileUpdate):
                                 if str(n).strip()][:_MAX_NOTES]
     if body.onboarded is not None:
         vals["onboarded"] = bool(body.onboarded)
+    if body.update_check is not None:
+        vals["update_check"] = bool(body.update_check)
     catalog.set_profile(vals)
     return _public_profile()
 

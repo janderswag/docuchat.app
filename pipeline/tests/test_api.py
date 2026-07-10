@@ -150,7 +150,10 @@ class TestSafetyStructural(unittest.TestCase):
                           "/data/erase",
                           # UX-7: Document Hub filing — re-file a document into
                           # another matter (hold-blocked on the source; POST only).
-                          "/kb/documents/move"})
+                          "/kb/documents/move",
+                          # UX-8: update status (the ONE deliberate non-loopback
+                          # call, lazy + toggleable; see updates.py disclosure).
+                          "/updates/status"})
 
     def test_only_the_locked_kb_delete_mutates(self):
         # No PUT/PATCH anywhere; DELETE is exposed ONLY on the structurally-locked KB

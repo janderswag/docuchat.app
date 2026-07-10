@@ -122,6 +122,38 @@
     return state.profile;
   }
 
+  // Fetch failures happen when the local app is restarting (e.g. during an
+  // update) — say that instead of the browser's cryptic "Failed to fetch".
+  function friendlyError(e) {
+    return (e && e.message === "Failed to fetch")
+      ? "Could not reach the local app (it may be restarting). Try again in a few seconds."
+      : (e && e.message) || String(e);
+  }
+
+  // UX-8: one-click "Update available" above Billing. Polled once per app load;
+  // the backend contacts GitHub at most once a day, only while the Settings
+  // toggle is on, and sends nothing (see updates.py).
+  async function checkUpdates() {
+    try {
+      var u = await api("/updates/status");
+      var existing = document.getElementById("update-nav");
+      if (!u.update_available) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      var foot = document.getElementById("nav-foot");
+      if (!foot) return;
+      var b = document.createElement("button");
+      b.className = "nav-item update";
+      b.id = "update-nav";
+      b.innerHTML = "<span class='nav-ico'><svg viewBox='0 0 24 24'><path d='M12 3v12'/>" +
+        "<path d='m7 10 5 5 5-5'/><path d='M4 21h16'/></svg></span> Update available" +
+        (u.latest ? " <span class='upd-ver'>" + esc(u.latest) + "</span>" : "");
+      b.addEventListener("click", function () {
+        window.open(u.download_page || "https://docuchat.app", "_blank");
+      });
+      foot.insertBefore(b, foot.firstChild);
+    } catch (e) { /* silent — updates are never a nag */ }
+  }
+
   // Sidebar profile block (UX-6): the user's avatar + first name once known, the
   // app identity until then. There is deliberately NO sign-out — no account exists.
   function refreshSidebarProfile() {
@@ -471,7 +503,7 @@
                     "&filename=" + encodeURIComponent(f.name) +
                     (isTranscript ? "&doc_type=transcript" : ""), { method: "POST", body: f })
           .then(function (r) { if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail); }); });
-      } catch (e) { if (err) err.textContent = e.message; }
+      } catch (e) { if (err) err.textContent = friendlyError(e); }
     }
     refreshHubHome();
   }
@@ -805,7 +837,7 @@
                     "&filename=" + encodeURIComponent(f.name) +
                     (isTranscript ? "&doc_type=transcript" : ""), { method: "POST", body: f })
           .then(function (r) { if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail); }); });
-      } catch (e) { if (err) err.textContent = e.message; }
+      } catch (e) { if (err) err.textContent = friendlyError(e); }
     }
     refreshMatterDocs();
   }
@@ -1471,7 +1503,20 @@
         esc(Object.values(s.hardening.backup_exclusions || {}).join("; ") || "n/a") +
         "</td></tr>") : "") +
       "</table></div>" +
+      "<div class='panel'><b>Updates</b>" +
+      "<label style='display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px'>" +
+      "<input type='checkbox' id='update-check-toggle'" +
+      ((state.profile && state.profile.update_check === false) ? "" : " checked") +
+      "> Check for updates automatically</label>" +
+      "<p class='muted' style='font-size:12.5px;margin:8px 0 0'>The one thing docuchat ever asks " +
+      "the internet: the latest version number, from github.com, at most once a day. Nothing " +
+      "about you or your documents is sent. Turn it off and docuchat makes zero outside calls.</p>" +
+      "</div>" +
       "<p class='muted'>Synthetic/public documents only. Backup/restore via deploy/restore.sh (SC-7).</p>";
+    document.getElementById("update-check-toggle").addEventListener("change", async function (e) {
+      await saveProfile({ update_check: e.target.checked });
+      checkUpdates();
+    });
     var badge = document.getElementById("brand-badge");
     if (badge) badge.textContent = local ? "100% local" : "review";
   }
@@ -1864,6 +1909,6 @@
     if (pb) pb.addEventListener("click", function () { openSettingsTab("profile"); });
     fillMatterPickers().catch(function () {});
     showView("chat");
-    loadProfile().then(maybeShowOnboarding).catch(function () {});
+    loadProfile().then(maybeShowOnboarding).then(checkUpdates).catch(function () {});
   });
 })();

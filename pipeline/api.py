@@ -86,6 +86,7 @@ import routes_search  # noqa: E402
 import routes_settings  # noqa: E402
 import routes_setup  # noqa: E402
 import routes_transcripts  # noqa: E402
+import routes_updates  # noqa: E402
 
 app.include_router(routes_matters.router)
 app.include_router(routes_kb.router)
@@ -100,6 +101,7 @@ app.include_router(routes_data.router)
 app.include_router(routes_setup.router)
 app.include_router(routes_transcripts.router)
 app.include_router(routes_retention.router)
+app.include_router(routes_updates.router)
 
 
 @app.on_event("startup")
