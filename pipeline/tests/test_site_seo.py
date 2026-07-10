@@ -65,11 +65,15 @@ class TestPhaseAMachineFiles(unittest.TestCase):
         self.assertIn("Organization", types, "Organization JSON-LD missing/invalid")
         self.assertIn("SoftwareApplication", types, "SoftwareApplication JSON-LD missing/invalid")
         app = next(b for b in blocks if b.get("@type") == "SoftwareApplication")
-        # sanity: the offer is free; downloadUrl points at the repo (run-from-source is
-        # the only shipped path) until a real release artifact exists (P2.6 honesty).
+        # sanity: the offer is free; downloadUrl is the live DMG (a release artifact
+        # shipped at v0.1.0 — the P2.6 pre-release rule flipped); the advertised
+        # version must track the app's real version (appversion.py) forever.
+        from appversion import APP_VERSION
         self.assertEqual(app["offers"]["price"], "0")
-        self.assertIn("github.com/janderswag/legal-document-chat", app["downloadUrl"])
-        self.assertNotIn("releases", app["downloadUrl"])
+        self.assertIn("github.com/janderswag/legal-document-chat/releases/latest/"
+                      "download/docuchat.dmg", app["downloadUrl"])
+        self.assertEqual(app.get("softwareVersion"), APP_VERSION,
+                         "site softwareVersion out of sync with appversion.py")
 
 
 def _visible_faq(html_text):

@@ -33,14 +33,16 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("run from source today", low)        # 3) the honest get-it path
 
     def test_download_section_is_honest(self):
-        # P2.6/D-65: no packaged artifact has shipped, so the page must not claim one.
-        # The working path (run from source) links the repo; the platform cards say soon.
+        # P2.6/D-65 honesty rule, FLIPPED at v0.1.0: a signed + notarized macOS
+        # artifact shipped, so the honest claim is now the live DMG download link
+        # (releases/latest, so the link always serves the newest release).
         low = self.html.lower()
-        self.assertNotIn("available today", low)
-        self.assertIn("signed app coming soon", low)       # macOS card
+        self.assertIn("signed", low)
+        self.assertIn("notarized", low)
+        self.assertRegex(
+            self.html,
+            r"github\.com/[\w.-]+/legal-document-chat/releases/latest/download/docuchat\.dmg")
         self.assertRegex(self.html, r"github\.com/[\w.-]+/legal-document-chat")
-        # No CTA may point at the (empty) releases page until a release exists.
-        self.assertNotRegex(self.html, r"github\.com/[\w.-]+/[\w.-]+/releases")
 
     def test_windows_coming_soon(self):
         self.assertIn("coming soon", self.html.lower())

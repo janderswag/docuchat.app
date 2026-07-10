@@ -102,7 +102,7 @@ app = BUNDLE(
     info_plist={
         "CFBundleName": "docuchat",
         "CFBundleDisplayName": "docuchat",
-        "CFBundleShortVersionString": "0.1.0",
+        "CFBundleShortVersionString": "0.2.0",
         "NSHighResolutionCapable": True,
         # pywebview uses WKWebView against 127.0.0.1 only; no ATS exception needed for
         # loopback. No microphone/camera/location usage strings — the app asks for none.

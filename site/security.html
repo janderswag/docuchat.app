@@ -36,7 +36,8 @@
     <table>
       <tr><th>When</th><th>What</th><th>Contains</th></tr>
       <tr><td>Setup, once, user-initiated</td><td>Model download through your local Ollama from the Ollama registry</td><td>No user data. The download is verified against pinned checksums.</td></tr>
-      <tr><td>Everything else</td><td>Nothing</td><td>The question-answering path, document storage, search, and OCR make no network calls. All services bind to 127.0.0.1 (this computer only). There is no telemetry, no crash reporting, no account, and no update phone-home.</td></tr>
+      <tr><td>At most once a day, optional</td><td>Update check: one GET to the GitHub releases API for the latest version number</td><td>No user data, no document data, no machine identifiers. Turn it off in Settings and docuchat makes zero outside calls. Updates are never downloaded or installed automatically.</td></tr>
+      <tr><td>Everything else</td><td>Nothing</td><td>The question-answering path, document storage, search, and OCR make no network calls. All services bind to 127.0.0.1 (this computer only). There is no telemetry, no crash reporting, and no account.</td></tr>
     </table>
     <p>Verify it yourself: after setup, turn networking off entirely (airplane mode or pull the
       cable). Upload a document, ask questions, run a digest. Everything keeps working, because
