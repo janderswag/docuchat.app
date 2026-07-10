@@ -16,6 +16,7 @@ offsets it needs ARE returned here), no reranker (rerank=False), no LlamaIndex
 import html
 import json
 import math
+import os
 import re
 import time
 import urllib.request
@@ -81,6 +82,13 @@ def small_talk_reply(question):
 KEEP_ALIVE = "30m"
 NUM_CTX = 8192
 
+# The pinned production chat model (D-11). LDI_CHAT_MODEL exists for MEASURED model
+# benchmarking only (run_golden.py under a candidate model) and as the hook for the
+# future RAM-tiered default — a production model change still requires its own
+# golden-gate cycle (D-75), and the Settings pin (routes_settings/routes_setup)
+# stays on the D-11 model until that decision lands.
+CHAT_MODEL = os.environ.get("LDI_CHAT_MODEL", "qwen3:14b")
+
 # CE_PLAN §10 default system prompt (grounded-answer rules + the exact refusal
 # sentence + verbatim-citation format). The <context>/question go in the user turn.
 SYSTEM_PROMPT = """You are a private document assistant for an attorney. You help locate, summarize,
@@ -141,7 +149,7 @@ def _norm(text):
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
-def _post_chat(messages, host=None, model="qwen3:14b", want_logprobs=False):
+def _post_chat(messages, host=None, model=CHAT_MODEL, want_logprobs=False):
     """Loopback Ollama /api/chat call -> the full response dict. When ``want_logprobs`` is
     set, requests per-token logprobs (for the B4 confidence signal); otherwise the request
     body is identical to the original _chat call (parity preserved)."""
@@ -159,11 +167,11 @@ def _post_chat(messages, host=None, model="qwen3:14b", want_logprobs=False):
         return json.load(resp)
 
 
-def _chat(messages, host=None, model="qwen3:14b"):
+def _chat(messages, host=None, model=CHAT_MODEL):
     return _post_chat(messages, host=host, model=model)["message"]["content"]
 
 
-def preload_model(host=None, model="qwen3:14b", timeout=120):
+def preload_model(host=None, model=CHAT_MODEL, timeout=120):
     """Load the chat model's weights into Ollama WITHOUT generating (empty messages =
     documented Ollama preload form), warm for KEEP_ALIVE. Called in a background thread
     at app startup (api.py) so the FIRST question doesn't pay the cold reload; loopback
@@ -195,7 +203,7 @@ def confidence_from_logprobs(logprobs):
     return math.exp(sum(vals) / len(vals))
 
 
-def _chat_stream_ttft(messages, host=None, model="qwen3:14b", think=False,
+def _chat_stream_ttft(messages, host=None, model=CHAT_MODEL, think=False,
                       num_predict=None, keep_alive=None, num_ctx=None):
     """Streaming variant used ONLY by the latency harness (G-LAT) — a side channel that
     does NOT touch answer()/_chat (M2-7 parity). Streams the Ollama response and stamps
@@ -384,7 +392,7 @@ def _assemble_context(question, matter, top_k, db_path):
     return _build_messages(chunks, question)
 
 
-def _stream_tokens(messages, host=None, model="qwen3:14b"):
+def _stream_tokens(messages, host=None, model=CHAT_MODEL):
     """Yield qwen3 content deltas from the loopback Ollama stream (think disabled). Used by
     the streaming chat path (B6) for perceived latency — the verifier still runs on the
     fully-assembled text, never on a partial."""
