@@ -18,7 +18,7 @@ class TestDigestFencing(unittest.TestCase):
     def test_answer_path_never_touches_digest(self):
         for mod in (answering, verifier, retrieval):
             src = inspect.getsource(mod)
-            for token in ("import digest", "matter_facts", "fact_review",
+            for token in ("import digest", "from digest", "matter_facts", "fact_review",
                           "routes_digest"):
                 self.assertNotIn(token, src,
                                  f"{mod.__name__} references {token} — digest fence broken")
