@@ -101,15 +101,11 @@ def pages_from_store(db_path, filename, matter):
     are excluded: their offsets index the table markdown, not the page."""
     fn = str(filename).replace("'", "''")
     mt = str(matter).replace("'", "''")
-    try:
-        rows = (open_table(db_path).search()
-                .where(f"source_filename = '{fn}' AND matter = '{mt}' "
-                       f"AND document_type != 'table'")
-                .select(["page_number", "char_start", "char_end", "text"])
-                .limit(100000).to_arrow().to_pylist())
-    except Exception:
-        log.exception("digest: chunk read failed for %s", filename)
-        return []
+    rows = (open_table(db_path).search()
+            .where(f"source_filename = '{fn}' AND matter = '{mt}' "
+                   f"AND document_type != 'table'")
+            .select(["page_number", "char_start", "char_end", "text"])
+            .limit(100000).to_arrow().to_pylist())
     by_page = {}
     for r in rows:
         by_page.setdefault(r["page_number"], []).append(r)
@@ -215,7 +211,14 @@ def extract_for_document(doc_id, db_path, catalog_db=None):
     if row is None:
         return None
     matter = row["matter_slug"]
-    pages = pages_from_store(db_path, row["filename"], matter)
+    try:
+        pages = pages_from_store(db_path, row["filename"], matter)
+    except Exception:
+        # A store read failure must NOT stamp digest_version — the doc would be
+        # recorded as digested without ever being read. Leave it unstamped so
+        # the startup backfill retries it.
+        log.exception("digest: chunk read failed, doc left unstamped: doc_id=%s", doc_id)
+        return None
     extracted, dropped, facts = 0, 0, []
     for group in _groups(pages):
         _yield_to_chat()

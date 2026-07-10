@@ -101,6 +101,13 @@ class TestExtractForDocument(unittest.TestCase):
         with mock.patch.dict("os.environ", {"LDI_MATTER_DIGEST": "0"}):
             self.assertIsNone(digest.extract_for_document(self.doc["id"], self.tmp / "kb"))
 
+    def test_store_read_failure_leaves_doc_unstamped(self):
+        with mock.patch.object(digest, "pages_from_store",
+                               side_effect=RuntimeError("lance down")):
+            out = digest.extract_for_document(self.doc["id"], self.tmp / "kb")
+        self.assertIsNone(out)
+        self.assertIsNone(catalog.get_document(self.doc["id"])["digest_version"])
+
 
 class TestPageGrouping(unittest.TestCase):
     def test_groups_respect_page_and_char_budget(self):
