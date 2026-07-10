@@ -7,8 +7,16 @@ _Last updated: 2026-07-10 (overnight session)_
 
 ## Status
 
-**2026-07-10 overnight — v0.3.0 BUILT: LIVE CONNECTORS (D-81) + in-place updates + new
-site demo. ⚠️ READ THE KEYCHAIN INCIDENT PARAGRAPH BELOW FIRST.**
+**2026-07-10 overnight — v0.3.0 RELEASED TO PRODUCTION: LIVE CONNECTORS (D-81) + in-place
+updates + new site demo. ⚠️ READ THE KEYCHAIN INCIDENT PARAGRAPH BELOW FIRST.**
+Release live and marked Latest (signed + notarized + stapled, Gatekeeper "accepted /
+Notarized Developer ID"; releases/latest redirect verified). **Golden gate PASSED
+pre-release: 63/63 present + 9/9 not-found + 0 rejected claims** (run-v030-gate) — the
+engine is grade-identical with the speed quick wins in. Site deployed (Pages) with the
+four-beat demo + updated security table. Jake's installed 0.2.0 app will show "Update
+available v0.3.0" (opens the download page; TRUE in-place updates begin for users ON
+v0.3.0 at the v0.4.0 jump — that path is unit-tested but gets its first real-world run
+then).
 Owner-directed overnight cycle (design spec: docs/superpowers/specs/
 2026-07-10-connectors-v030-design.md). Shipped to main: (1) **connector platform** —
 every one of the 65 catalog entries re-verified against CURRENT vendor API docs by an
