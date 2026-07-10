@@ -4,7 +4,7 @@ recall per fact type. Precision is enforced by construction (the write gate);
 value correctness is spot-graded per extractor_version, per the design spec.
 Usage:
   python3 run_digest_eval.py --inventory ../eval/digest_inventory.json \
-      --db ../eval/.lancedb_eval --catalog ../eval/.kb_catalog_eval.db
+      --db ../eval/.lancedb_eval
 """
 
 import argparse
@@ -48,7 +48,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--inventory", required=True)
     ap.add_argument("--db", required=True)
-    ap.add_argument("--catalog", required=True)
     args = ap.parse_args()
 
     manifest = json.loads(Path(args.inventory).read_text())
@@ -72,6 +71,9 @@ def main():
         pct = (r["hit"] / r["total"] * 100) if r["total"] else 0
         print(f"  {t:14s} {r['hit']}/{r['total']}  ({pct:.0f}%)  target "
               f"{targets.get(t, 0) * 100:.0f}%")
+    for t in targets:
+        if not recall.get(t, {"total": 0})["total"]:
+            print(f"WARNING: no inventory entries for {t} — target not enforced")
     ok = meets_targets(recall, targets)
     print("G-DIG:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
