@@ -7,6 +7,21 @@ _Last updated: 2026-07-10 (overnight session)_
 
 ## Status
 
+**2026-07-10 overnight — v0.3.1 RELEASED (security patch on top of v0.3.0). ⚠️ TWO owner
+notes below: (a) NO Time Machine backup exists on this machine; (b) the keychain incident.**
+Post-release security review (skill + adversarial subagent) of the v0.3.0 diff found ONE
+High: `connectors/gmail.py` opened `IMAP4_SSL(HOST)` with no ssl_context → CPython default
+is an UNVERIFIED context (CERT_NONE), so a network MITM could present any cert, capture the
+Google app password, and read the mailbox. FIXED: passes `ssl.create_default_context()`
+(CERT_REQUIRED + check_hostname), regression-tested. Also hardened two defense-in-depth
+items: Nextcloud forces https:// (Basic-auth password never cleartext) and connsync runs
+the import fallback filename through the KB path sanitizer. The updater verify chain
+(HTTPS + codesign + pinned Team ID before any swap), all 27 other adapters (httpx verify=True),
+credential sealing, and UI esc() all reviewed clean. v0.3.1 signed+notarized+stapled,
+Gatekeeper accepted, published as Latest. **⚠️ `tmutil destinationinfo` = NO destinations
+configured — the keychain-incident recovery (restore login.keychain-db from a 07-07..07-09
+backup) is NOT available; owner should accept the fresh re-seed and set up Time Machine.**
+
 **2026-07-10 overnight — v0.3.0 RELEASED TO PRODUCTION: LIVE CONNECTORS (D-81) + in-place
 updates + new site demo. ⚠️ READ THE KEYCHAIN INCIDENT PARAGRAPH BELOW FIRST.**
 Release live and marked Latest (signed + notarized + stapled, Gatekeeper "accepted /
