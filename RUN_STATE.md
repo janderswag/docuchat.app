@@ -3,9 +3,27 @@
 > Single source of truth for "where are we right now." Update this after every working session.
 > Read at the start of each session alongside `CLAUDE.md`.
 
-_Last updated: 2026-07-07_
+_Last updated: 2026-07-09_
 
 ## Status
+
+**2026-07-09 UX-2 cycle — first-real-user feedback + attorney board -> SHIPPED on branch
+`ux-v2`, AWAITING OWNER PREVIEW (D-75).** Owner filed the first real-user feedback batch
+(hello triggers retrieval; tab-switch loses work; 8-item nav confuses; no onboarding;
+"(Demo)" label; no compare picker); a 4-persona attorney board unanimously converged.
+Shipped: small-talk gate (greetings never retrieve — canned uncited reply); IA v2 (nav
+8 -> 5: Matters / Chat / Search / Review & Compare / Settings; matter = the case file with
+upload + docs + chats + tools inside; history is a rail in Chat; review + compare are tabs,
+launchable from a matter); lossless view switching (views build once — navigation never
+destroys an in-progress chat/review/comparison); compare document picker (posts doc_ids);
+onboarding (3 skippable screens; local-only profile: name + practice areas via /profile,
+no contact fields by design; greeting + practice-tailored prompts; editable in Settings);
+sample matter renamed "Sample Matter" with a label migration for existing installs.
+Model stays qwen3:14b: the RAM-tiered Qwen upgrade path is research-mapped but gated on
+its own golden-gate benchmark cycle (D-75). OWNER QUEUE: preview `ux-v2` at
+127.0.0.1:8000/app and approve -> merge to main; then next cycles: background job center,
+model tier benchmark, firm-name-at-export. (Standing queue from D-74 still open: delete
+plaintext asides; approve site-preview; buy certs.)
 
 **2026-07-07 encryption cycle — SHIPPED AND GATED (D-73, D-74).** The Move 4 deferred half
 is live: measured prototype first (eval/ENCVOL_PROTO.md: attach 443.8ms median, +36.8ms

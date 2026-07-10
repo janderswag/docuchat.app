@@ -861,6 +861,42 @@
   items: master key + volume key in the login Keychain (Secure-Enclave binding is a
   post-codesigning upgrade, not claimed). (D-71, D-72, D-73)
 
+- **D-75 — UX-2 cycle: first-real-user feedback + attorney board -> IA v2, small-talk gate,
+  onboarding (2026-07-09).** Owner used the shipped app and filed the first real-user feedback
+  batch; a 4-persona attorney board review (solo litigator, transactional partner, tech-skeptic
+  estate lawyer, legal-tech power user) unanimously converged with it. Decided and SHIPPED on
+  branch `ux-v2`: (a) **Small-talk gate (UX-1)** — a whole-message greeting/courtesy phrase gets
+  a canned, honestly-uncited reply with NO retrieval (no embed, no vector search, no "Reading
+  these passages" for a question never asked); conservative exact-normalized-match only, so
+  every real question falls through unchanged. Board finding: visible retrieval on "hello"
+  reads as rifling through files unprompted and spends the trust the citations earned.
+  (b) **IA v2 (UX-2)** — nav cut 8 -> 5: Matters / Chat / Search / Review & Compare / Settings.
+  A matter is THE case file: upload (drag & drop), documents, digests, conversations, and tool
+  launchers live inside the matter detail page (Document Hub absorbed — documents always belong
+  to a matter); Chat History becomes a rail inside Chat; Contract Review + Compare Documents
+  become tabs of one Review & Compare workspace, also launchable from inside a matter ("context
+  is the picker"). Search stays top-level BY DESIGN: exhaustive "every mention" retrieval is a
+  different epistemic promise than conversational synthesis and must not blur into chat.
+  (c) **Lossless view switching (UX-3)** — views build once and are shown/hidden; switching
+  views never destroys an in-progress chat, review, or comparison (was: every visit rebuilt
+  innerHTML from scratch; board rated the data loss "disqualifying"). Full background jobs with
+  progress/notifications are the follow-on cycle, deliberately deferred. (d) **Compare document
+  picker (UX-4)** — explicit checkboxes (default all; a subset posts doc_ids — the backend
+  already supported it, the UI never exposed it). (e) **Onboarding + local profile (UX-5)** —
+  three skippable screens (~45s: privacy promise; first name + practice-area chips; how-to-
+  trust-the-answers). Profile lives ONLY in the local (SQLCipher) catalog via GET/PUT /profile;
+  NO email/phone/account fields by design (the API drops them, tested). Every field is used:
+  name -> greeting (later: export stamping); practice areas -> tailored suggested prompts.
+  Research basis: competitor scan (Clio/MyCase/Smokeball/Spellbook/Harvey/CoCounsel/Paxton/
+  Alexi) — capture-at-the-moment-of-use beats upfront collection; firm name deferred to first
+  export; jurisdiction belongs per-matter, not per-user. (f) **Sample matter drops "(Demo)"**
+  — label migrated on pre-rename installs (slug immutable; it keys stored natives/KB rows).
+  **Model decision:** stay on qwen3:14b this cycle; a RAM-tiered upgrade (qwen3.5:9b on 16GB /
+  qwen3.6:35b-a3b MoE on 32GB+, per the mid-2026 research sweep) happens ONLY through its own
+  benchmark cycle against the 63/63 golden gate + latency eval — never a blind swap.
+  Deferred to next cycles: background job center; firm-name capture at first export;
+  per-matter jurisdiction field; per-attorney profiles (shared machines); font-size setting.
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal
