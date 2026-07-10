@@ -24,14 +24,21 @@ def _norm(s):
 
 def score(inventory, extracted):
     """extracted: {(doc, fact_type): [span, ...]}. An inventory entry is a hit when
-    its normalized span_contains is a substring of any extracted span's norm."""
+    its normalized span_contains and a normalized extracted span identify the same
+    fact in either substring direction: needle-in-span OR span-in-needle. The model
+    routinely excerpts a tighter span than the hand-labeled inventory fragment (and
+    occasionally the reverse), so a hit is: needle_norm in span_norm, or
+    (len(span_norm) >= 12 and span_norm in needle_norm). The 12-char floor on the
+    reverse direction guards against degenerate spans (e.g. a bare year) trivially
+    matching against long needles."""
     recall = defaultdict(lambda: {"hit": 0, "total": 0})
     for entry in inventory:
         t = entry["fact_type"]
         recall[t]["total"] += 1
         needle = _norm(entry["span_contains"])
         spans = extracted.get((entry["doc"], t), [])
-        if any(needle in _norm(s) for s in spans):
+        if any(needle in _norm(s) or (len(_norm(s)) >= 12 and _norm(s) in needle)
+               for s in spans):
             recall[t]["hit"] += 1
     return dict(recall)
 

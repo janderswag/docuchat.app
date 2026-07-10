@@ -23,6 +23,30 @@ class TestScorer(unittest.TestCase):
         self.assertEqual(recall["party"], {"hit": 1, "total": 2})
         self.assertEqual(recall["amount"], {"hit": 0, "total": 1})
 
+    def test_span_inside_needle_counts_as_hit(self):
+        # The model excerpts a tighter span than the hand-labeled fragment: the
+        # extracted span is a genuine substring of the longer inventory needle.
+        inventory = [
+            {"doc": "b.pdf", "fact_type": "date",
+             "span_contains": "entered into and effective as of March 14, 2024 "
+                               "(the Effective Date)"},
+        ]
+        extracted = {("b.pdf", "date"): ["March 14, 2024 (the Effective Date)"]}
+        recall = run_digest_eval.score(inventory, extracted)
+        self.assertEqual(recall["date"], {"hit": 1, "total": 1})
+
+    def test_degenerate_short_span_is_not_a_hit(self):
+        # A bare year is a substring of the needle too, but at norm length 4 it's
+        # below the 12-char floor, so it must not count as a hit.
+        inventory = [
+            {"doc": "b.pdf", "fact_type": "date",
+             "span_contains": "entered into and effective as of March 14, 2024 "
+                               "(the Effective Date)"},
+        ]
+        extracted = {("b.pdf", "date"): ["2024"]}
+        recall = run_digest_eval.score(inventory, extracted)
+        self.assertEqual(recall["date"], {"hit": 0, "total": 1})
+
     def test_targets_gate(self):
         self.assertTrue(run_digest_eval.meets_targets(
             {"party": {"hit": 9, "total": 10}}, {"party": 0.90}))
