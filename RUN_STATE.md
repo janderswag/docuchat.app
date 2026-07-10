@@ -7,6 +7,16 @@ _Last updated: 2026-07-09_
 
 ## Status
 
+**2026-07-09 late session (D-79 + UX-9/10 + connector strategy).** Model benchmark DONE:
+qwen3.5:9b REJECTED (46/63 vs 63/63; abbreviates verbatim spans with `...` — verifier
+rightly rejects; speed win marginal, p90 worse). qwen3:14b stays pinned (D-79). Shipped to
+main: folder upload (webkitdirectory + recursive folder drop, strays skipped not errored,
+UX-9); window-first launcher (instant branded splash instead of ~20s Dock bounce; live-
+handles cleanup preserves the D-59 no-orphan guarantee; reaches users at next release,
+UX-10). Connector roadmap decided in discussion (owner): Tier-2 import-only APIs next —
+Clio -> notetakers (Read.ai first) -> CourtListener -> IMAP -> .msg, behind a "Connected
+imports" switch with D-78-style disclosure. OWNER QUEUE unchanged: certs -> release cut.
+
 **2026-07-09 UX cycles MERGED TO MAIN (owner-approved): D-75/D-76/D-77/D-78 all live on
 main; `ux-v2` deleted.** Users get this when the next release is CUT — still blocked on
 signing certs (desktop/SIGNING.md). At release-cut time: bump appversion.py, tag, and add

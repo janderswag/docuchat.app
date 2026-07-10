@@ -955,6 +955,21 @@
   (Sparkle-style in-place update is a post-signing cycle). Site/security copy must say
   "zero outbound except an optional daily version check" when this ships to main. (D-71)
 
+- **D-79 — Model benchmark RUN and decided: STAY on qwen3:14b; qwen3.5:9b REJECTED
+  (2026-07-09).** Per the D-75 rule (never a blind swap), the full 72-question golden gate
+  ran under `qwen3.5:9b` (via the new LDI_CHAT_MODEL override; eval store + corpus in the
+  original working copy; run file `eval/results/run-2026-07-09-qwen35-9b-bench.jsonl`,
+  git-ignored like all runs). **Result: present 46/63 (baseline 63/63), NF 8/9 (baseline
+  9/9), 25 rejected claims (baseline 0).** Root cause verified by inspection, not just
+  score: the 9B abbreviates its "verbatim" spans (inserts `...` mid-quote), so the
+  mechanical verifier rejects them — never-false-accept working exactly as designed, and
+  precisely the grounded-quote discipline D-10 chose qwen3:14b for. The speed win was also
+  marginal-to-negative on this hardware: median 7.1s vs 8.3s, p90 19.2s vs 11.9s (WORSE).
+  Verdict: no swap; the 14B stays pinned. The 32GB+ tier candidate (qwen3.6:35b-a3b MoE)
+  cannot be measured on the 24GB dev machine — revisit only on production hardware (M4-5)
+  or if a strong small model ships; any candidate must beat this same gate first.
+  (D-10, D-11, D-75)
+
 ## Stack — pilot (Milestone 1)
 
 - **D-8 — Model runtime: Ollama** (pilot and production). OpenAI-compatible local API, Metal
