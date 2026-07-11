@@ -95,3 +95,24 @@ class TestSearchRoutes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestNormCharacterContract(unittest.TestCase):
+    """Council 2026-07-11 Move 5 review, finding 1: /search must match under the
+    SAME character contract as the citation verifier, or a verified span with
+    straight quotes 0-hits a curly-quoted PDF - the answer would cite a passage
+    Every mention says does not exist."""
+
+    def test_quote_class_entity_and_hyphen_break_alignment(self):
+        from routes_search import _norm
+        # straight-vs-curly quotes (ubiquitous in born-digital legal PDFs)
+        self.assertIn(_norm('the "Termination Fee" shall be $50,000'),
+                      _norm("the “Termination Fee” shall be $50,000 today"))
+        # hyphen-linebreak reflow
+        self.assertIn(_norm("agree-ment"), _norm("this agree-\nment continues"))
+        # HTML entities
+        self.assertIn(_norm("Smith & Sons"), _norm("Smith &amp; Sons LLC"))
+        # escaped quotes (model-asserted spans carry these)
+        self.assertIn(_norm('the \\"deposit\\"'), _norm("the ‘deposit’ due"))
+        # plain text is untouched
+        self.assertIn(_norm("Witness   VANTREASE"), _norm("witness vantrease appeared"))

@@ -37,16 +37,20 @@ class TestSlashPaletteMarkupAndWiring(unittest.TestCase):
             "Matter overview: parties, timeline, deadlines",
             "Compare documents",
             "Contract review",
-            "Ask where the documents discuss",
+            "Every mention of ",
             "Summarize the key documents in this matter, with citations.",
             "Copy the last answer with citations",
         ]:
             self.assertIn(desc, APP_JS)
 
-    def test_find_and_summarize_fill_composer_text(self):
-        # These insert an editable question — they must never appear pre-baked
-        # into a sendChat() call anywhere near their construction.
-        self.assertIn("Where do this matter's documents discuss ", APP_JS)
+    def test_find_navigates_and_summarize_fills_composer_text(self):
+        # /summarize inserts an editable question — never a pre-baked send.
+        # /find is REPOINTED (council 2026-07-11 Move 5, owner-approved): it
+        # opens the Every mention panel (exhaustive, counted) instead of
+        # templating a top-k chat question — navigation, still never a send.
+        self.assertNotIn("Where do this matter's documents discuss ", APP_JS)
+        i = APP_JS.index('item.cmd === "find"')
+        self.assertIn("openEveryMention", APP_JS[i:i + 700])
         self.assertIn("Summarize the key documents in this matter, with citations.", APP_JS)
 
     def test_palette_dom_container_in_composer(self):

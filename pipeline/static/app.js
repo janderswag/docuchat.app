@@ -432,6 +432,20 @@
       "<div id='hub-err' style='color:var(--err);font-size:13px'></div>" +
       "<div id='hub-ingest-status' class='muted' style='font-size:13px'></div>" +
       "</div>" +
+      "<div class='panel'><b>Every mention</b>" +
+      "<p class='muted' style='font-size:13px;margin:4px 0 10px'>Type a name, amount, or defined term " +
+      "and get every place it appears in the matter, with a true count — no AI, no ranking, no top-5. " +
+      "This is the tool for &ldquo;show me each mention of Vantrease&rdquo;. Chat answers questions; " +
+      "this enumerates.</p>" +
+      "<div style='display:flex;gap:8px;align-items:center;flex-wrap:wrap'>" +
+      "<select class='matter-picker' id='search-matter' style='max-width:240px'></select>" +
+      "<input id='search-input' type='text' placeholder='A name, amount, defined term, case number…' style='flex:1;min-width:220px'>" +
+      "<select id='search-mode' style='max-width:320px' title='Every mention finds exact text with a true count; Best match ranks likely passages when you do not know the exact wording'>" +
+      "<option value='mentions'>Every mention — exact text, counted</option>" +
+      "<option value='fts'>Best match — ranked, wording unknown</option></select>" +
+      "<button class='btn' id='search-go'>Find</button></div>" +
+      "<div id='search-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='search-results'></div></div>" +
       "<div class='panel'><b>Unfiled</b> <span class='muted' style='font-size:13px'>— drag a document " +
       "onto a matter below to file it</span>" +
       "<table style='margin-top:8px'><thead><tr><th>Document</th><th>Size</th><th>Status</th><th></th></tr></thead>" +
@@ -442,17 +456,6 @@
       "<button class='btn' id='new-matter-btn'>Create</button></div>" +
       "<div id='new-matter-err' style='color:var(--err);font-size:13px'></div>" +
       "<div id='matter-cards' class='matter-cards'></div></div>" +
-      "<div class='panel'><b>Find in documents</b>" +
-      "<p class='muted' style='font-size:13px;margin:4px 0 10px'>Every mention, exhaustively — the full " +
-      "list of matching passages in the chosen matter, not a top-5. No AI answering here, just your documents.</p>" +
-      "<div style='display:flex;gap:8px;align-items:center'>" +
-      "<select class='matter-picker' id='search-matter' style='max-width:240px'></select>" +
-      "<input id='search-input' type='text' placeholder='A name, amount, defined term, case number…' style='flex:1'>" +
-      "<select id='search-mode' style='max-width:170px'>" +
-      "<option value='mentions'>Every mention</option><option value='fts'>Best match</option></select>" +
-      "<button class='btn' id='search-go'>Find</button></div>" +
-      "<div id='search-err' style='color:var(--err);font-size:13px'></div>" +
-      "<div id='search-results'></div></div>" +
       "</div>" +
       "<div id='matter-detail' style='display:none'></div>";
 
@@ -1271,12 +1274,49 @@
       conf = "<span class='conf-pill " + lvl + "' title='Model self-confidence " +
         "(display only — does not affect citations)'>confidence " + pct + "%</span>";
     }
+    // "Every mention" cross-link (council 2026-07-11 Move 5): chat is top-k and
+    // generative; the panel is exhaustive and counted. One link at the moment
+    // of need teaches the difference.
+    var mention = "";
+    var c0 = cites[0];
+    if (c0 && c0.span) {
+      var probe = String(c0.span).replace(/\s+/g, " ").trim().slice(0, 60);
+      if (probe) {
+        mention = "<a href='#' class='every-mention-link' data-q='" + esc(probe) +
+          "'>See every mention of the cited passage</a>";
+      }
+    }
     return "<div class='answer'>" + md(safe) + "</div>" + conf +
       (thumbs ? "<div class='thumb-row'>" + thumbs + "</div>" : "") +
-      (sources ? "<div class='sources'><b>Sources</b><ul>" + sources + "</ul></div>" : "") +
+      (sources ? "<div class='sources'><b>Sources</b><ul>" + sources + "</ul>" +
+        mention + "</div>" : "") +
       "<button class='btn secondary copy-answer-btn' type='button' style='margin-top:6px'>Copy</button>";
   };
   window.citationThumb = citationThumb;
+
+  // Jump to the Every mention panel with a query pre-filled and run it. The
+  // matter picker may be empty on the first hub build — fill it first so the
+  // count is visibly labeled with its matter (legibility is the point).
+  window.openEveryMention = async function (q) {
+    if (mattersState.open) closeMatter();
+    showView("hub");
+    try { await fillMatterPickers(); } catch (e) {}
+    var sel = document.getElementById("search-matter");
+    if (sel && state.matter) sel.value = state.matter;
+    var mode = document.getElementById("search-mode");
+    if (mode) mode.value = "mentions";
+    var input = document.getElementById("search-input");
+    if (input) input.value = q || "";
+    var go = document.getElementById("search-go");
+    if (go && q) go.click();
+    if (input) input.focus();
+  };
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest ? e.target.closest(".every-mention-link") : null;
+    if (!a) return;
+    e.preventDefault();
+    window.openEveryMention(a.dataset.q || "");
+  });
 
   // Sprint item 5: copy a completed answer as plain text (no HTML/markdown) — the
   // answer followed by a blank line and numbered citations, e.g.
@@ -1572,7 +1612,7 @@
     { cmd: "overview", desc: "Matter overview: parties, timeline, deadlines" },
     { cmd: "compare", desc: "Compare documents" },
     { cmd: "review", desc: "Contract review" },
-    { cmd: "find", desc: "Ask where the documents discuss …" },
+    { cmd: "find", desc: "Every mention of … (exact text, counted)" },
     { cmd: "summarize", desc: "Summarize the key documents in this matter, with citations." },
     { cmd: "copy", desc: "Copy the last answer with citations" }
   ];
@@ -1666,10 +1706,13 @@
       return;
     }
     if (item.cmd === "find") {
+      // Repointed (council 2026-07-11 Move 5, owner-approved): /find used to
+      // template a chat question — top-k generative, the OPPOSITE mechanism of
+      // what "find" implies. It now opens Every mention (exhaustive, counted).
       var arg = slashArg(input.value);
       if (!arg) { input.value = "/find "; input.focus(); return; }
-      input.value = "Where do this matter's documents discuss " + arg + "?";
-      input.focus();
+      input.value = "";
+      window.openEveryMention(arg);
       return;
     }
     if (item.cmd === "summarize") {
@@ -1772,7 +1815,7 @@
     var err = document.getElementById("search-err");
     if (err) err.textContent = "";
     if (!q) return;
-    if (!state.matter) { if (err) err.textContent = "Create a matter first (Matters view)."; return; }
+    if (!state.matter) { if (err) err.textContent = "Create a matter first (Document Hub)."; return; }
     if (reset) { searchState.offset = 0; searchState.lastQ = q; out.innerHTML = "<p class='muted'>Searching…</p>"; }
     try {
       var mode = document.getElementById("search-mode").value;
@@ -1809,7 +1852,7 @@
     } catch (e) { out.innerHTML = "<span style='color:var(--err)'>" + esc(e.message) + "</span>"; }
   }
 
-  // (The Search view was folded into the Document Hub's "Find in documents" panel
+  // (The Search view was folded into the Document Hub's "Every mention" panel
   // per owner direction — runSearch/searchState above are driven from there.)
 
   // --- Settings view (UX-6): Profile | Connectors | Memory | System -----------
@@ -2665,7 +2708,7 @@
   async function runReviewJob() {
     var err = document.getElementById("clause-err");
     if (err) err.textContent = "";
-    if (!state.matter) { if (err) err.textContent = "Create a matter first (Matters view), then run the review."; return; }
+    if (!state.matter) { if (err) err.textContent = "Create a matter first (Document Hub), then run the review."; return; }
     if (reviewJob.running) return;
     reviewJob.running = true;      // guard BEFORE the await: two fast clicks must
     setReviewRunning(true);        // never attach two readers to one job
@@ -3031,7 +3074,7 @@
   async function runGrid() {
     var err = document.getElementById("grid-err");
     if (err) err.textContent = "";
-    if (!state.matter) { if (err) err.textContent = "Create a matter first (Matters view), then run the comparison."; return; }
+    if (!state.matter) { if (err) err.textContent = "Create a matter first (Document Hub), then run the comparison."; return; }
     var boxes = Array.prototype.slice.call(document.querySelectorAll("#grid-docs .grid-doc"));
     var picked = boxes.filter(function (c) { return c.checked; })
                       .map(function (c) { return parseInt(c.value, 10); });

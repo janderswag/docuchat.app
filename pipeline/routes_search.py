@@ -16,6 +16,7 @@ The matter value is validated against the store allowlist exactly like retrieval
 (D-35); matter=None is an explicit search-all. Loopback-only, read-only.
 """
 
+import html
 import re
 
 from fastapi import APIRouter, HTTPException
@@ -29,11 +30,23 @@ router = APIRouter()
 
 MAX_LIMIT = 100
 _WS = re.compile(r"\s+")
+_QUOTES = "\"'“”‘’"   # the verifier's quote class (verifier._QUOTES)
 # FTS index freshness: db key -> table version the index was built against.
 _FTS_BUILT = {}
 
 
 def _norm(s):
+    """Match under the SAME character contract as the citation verifier
+    (verifier._norm_map, minus offset tracking): decode HTML entities, join
+    hyphen-linebreaks, drop quote characters and their escapes, collapse
+    whitespace, casefold. Without the quote/entity/hyphen steps, a verified
+    citation span with straight quotes 0-hits a curly-quoted PDF here — the
+    answer would cite a passage Every mention says does not exist (council
+    2026-07-11 Move 5 review, finding 1)."""
+    s = html.unescape(s)
+    s = s.replace('\\"', '"').replace("\\'", "'")
+    s = s.replace("-\n", "-")
+    s = "".join(ch for ch in s if ch not in _QUOTES)
     return _WS.sub(" ", s).casefold()
 
 

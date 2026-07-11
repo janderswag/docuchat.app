@@ -20,7 +20,7 @@ client = TestClient(api.app)
 # UX-7 IA (owner-directed): Chat / Chat History / Document Hub / Review & Compare /
 # Settings, with Billing + Referrals pinned at the bottom. The Document Hub is the
 # filing cabinet (upload anything -> Unfiled -> drag into a matter); the exhaustive
-# Search moved inside it as "Find in documents".
+# Search moved inside it as "Every mention".
 NAV_LABELS = ["Chat", "Chat History", "Document Hub", "Review &amp; Compare",
               "Settings", "Billing", "Referrals"]
 REMOVED_LABELS = ["New Chat", "Matters", "Search"]
