@@ -420,13 +420,23 @@ def _watch_restart_marker(window, poll=0.5):
         except OSError:
             pass
         if app_path:
-            # by the time `open` runs, the process below will already be tearing down
-            # (window.destroy() -> webview.start() returns -> main()'s finally -> exit);
-            # the sleep gives that a moment to finish so `open` launches fresh instead of
-            # just re-activating a not-yet-dead instance.
-            subprocess.Popen(["/bin/sh", "-c", f'sleep 2; open "{app_path}"'],
-                             start_new_session=True,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # `open` must not fire until THIS process has actually exited — otherwise
+            # macOS just re-activates the still-running old instance (the original bug,
+            # in a slow-teardown corner: window.destroy() unblocks webview.start(), but
+            # main()'s finally still has to run stop_server() on the child server/Ollama,
+            # which can take up to ~16s of SIGTERM-then-SIGKILL waits). A fixed sleep
+            # can't bound that, so poll our own pid with `kill -0` instead of sleeping a
+            # guess. Capped at 120s (240 * 0.5s) so a launch can never hang forever; past
+            # the bound we open anyway — worst case it just re-activates the old instance,
+            # and by then the UI's 25s "Restarting…" fallback has already told the user to
+            # quit and reopen.
+            pid = os.getpid()
+            subprocess.Popen(
+                ["/bin/sh", "-c",
+                 f'n=0; while kill -0 {pid} 2>/dev/null && [ $n -lt 240 ]; do '
+                 f'sleep 0.5; n=$((n+1)); done; open "{app_path}"'],
+                start_new_session=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         window.destroy()
         return
 

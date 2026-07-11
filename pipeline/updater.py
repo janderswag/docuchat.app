@@ -14,16 +14,16 @@ Safety order (nothing is destructive until step 5, and step 5 can roll back):
      — a compromised download can never install, signed-by-someone-else or not
   5. rename the current .app aside -> ditto the new one in -> remove the aside
      (any error: put the aside back)
-  6. write a restart marker (the app bundle path) for the LAUNCHER to act on, then
-     SIGTERM ourselves. We do not relaunch ourselves: the packaged app runs its
-     server IN-PROCESS with the pywebview GUI (desktop/launcher.py's
-     start_server_frozen), sharing one OS process whose main thread is blocked
-     inside the native macOS run loop for the whole session. A bare SIGTERM to
-     that process can sit pending forever — the interpreter never returns to
-     bytecode to run the registered handler — leaving the window stuck on
-     "Restarting…" and a plain `open` on the still-running app just re-activates
-     it instead of relaunching. Only the launcher's main thread can safely
-     destroy the window and exit; the marker is how we hand it the request.
+  6. write a restart marker (the app bundle path) for the LAUNCHER to act on. We do
+     not relaunch ourselves: the packaged app runs its server IN-PROCESS with the
+     pywebview GUI (desktop/launcher.py's start_server_frozen), sharing one OS
+     process whose main thread is blocked inside the native macOS run loop for the
+     whole session. Only the launcher's main thread can safely destroy the window
+     and exit; the marker is how we hand it the request. In that same frozen mode we
+     skip the self-SIGTERM entirely: it would sit PENDING against the blocked main
+     thread and can be re-delivered mid-teardown once the run loop exits, racing the
+     shutdown the marker watcher already owns. Dev/subprocess mode (server as a real
+     child process, no in-process watcher) still SIGTERMs itself — see _relaunch.
 
 Runs only from an installed .app bundle (a dev checkout refuses honestly).
 State machine mirrors connsync jobs: idle -> downloading -> verifying ->
@@ -157,11 +157,23 @@ def _swap(current, incoming):
 
 def _relaunch(app_path):
     """Hand the restart to the launcher instead of doing it ourselves (see the module
-    docstring): write the marker with the bundle path, then SIGTERM ourselves so the
-    server exiting remains the signal for a dev/subprocess launch."""
+    docstring): write the marker with the bundle path.
+
+    In the frozen packaged app the server runs IN-PROCESS with the pywebview GUI
+    (desktop/launcher.py's start_server_frozen), sharing one OS process whose main
+    thread sits inside the native Cocoa run loop for the whole session. There, the
+    marker alone is enough — _watch_restart_marker notices it directly and owns
+    shutdown, no signal needed — and a self-SIGTERM would just sit PENDING against
+    that main thread, ready to be re-delivered once the run loop finally exits and
+    race install_cleanup_live's finally block via the D-59 handler's re-raise. Detect
+    that mode the same way the rest of the app does (``sys.frozen``) and skip the
+    signal there. Dev/subprocess mode still needs the SIGTERM: the server there is a
+    real CHILD process with no in-process watcher, so the process exiting is the only
+    relaunch signal the launcher gets."""
     RESTART_MARKER.write_text(str(app_path))
-    time.sleep(0.5)
-    os.kill(os.getpid(), signal.SIGTERM)
+    if not getattr(sys, "frozen", False):
+        time.sleep(0.5)
+        os.kill(os.getpid(), signal.SIGTERM)
 
 
 def run_install():

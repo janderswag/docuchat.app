@@ -242,6 +242,12 @@ class TestRestartMarkerWatch(unittest.TestCase):
         cmd = popen.call_args[0][0]
         self.assertIn(str(app_path), cmd[-1])
         self.assertIn("open", cmd[-1])
+        # relaunch must wait for OUR pid to actually exit (kill -0 poll loop), not a
+        # fixed sleep — a fixed sleep can't bound stop_server()'s up-to-~16s teardown,
+        # so `open` could fire while the old process is still alive (macOS then just
+        # re-activates it instead of relaunching).
+        self.assertIn(f"kill -0 {os.getpid()}", cmd[-1])
+        self.assertNotRegex(cmd[-1], r"sleep 2;\s*open")
 
     def test_no_marker_is_a_noop_a_crash_must_not_relaunch_loop(self):
         app_path = self.tmp / "docuchat.app"

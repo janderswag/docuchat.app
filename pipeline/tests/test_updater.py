@@ -84,8 +84,14 @@ class TestSwapRollback(unittest.TestCase):
 class TestRelaunch(unittest.TestCase):
     """The launcher, not updater.py, must own the actual relaunch (see the module
     docstring): _relaunch writes the restart marker with the bundle path for
-    desktop/launcher.py's _watch_restart_marker to pick up, then still SIGTERMs
-    itself (the server exiting remains the signal for a dev/subprocess launch)."""
+    desktop/launcher.py's _watch_restart_marker to pick up.
+
+    In the frozen single-process app the marker alone is enough — the launcher's
+    watcher thread owns shutdown — and a self-SIGTERM must NOT be sent: it would sit
+    PENDING against the main thread's blocked Cocoa run loop and can be re-delivered
+    mid-teardown, racing install_cleanup_live's finally via the D-59 handler's
+    re-raise. Dev/subprocess mode (server as a real child process, no in-process
+    watcher) still needs the SIGTERM as the launcher's only relaunch signal there."""
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -95,10 +101,19 @@ class TestRelaunch(unittest.TestCase):
     def tearDown(self):
         updater.RESTART_MARKER = self._orig_marker
 
-    def test_writes_marker_with_app_path_and_sigterms(self):
+    def test_frozen_app_writes_marker_and_does_not_sigterm(self):
+        app_path = self.tmp / "docuchat.app"
+        with patch("os.kill") as kill, patch.object(updater.time, "sleep"), \
+                patch.object(updater.sys, "frozen", True, create=True):
+            updater._relaunch(app_path)
+        self.assertEqual(updater.RESTART_MARKER.read_text(), str(app_path))
+        kill.assert_not_called()
+
+    def test_dev_subprocess_mode_still_sigterms(self):
         import os
         app_path = self.tmp / "docuchat.app"
-        with patch("os.kill") as kill, patch.object(updater.time, "sleep"):
+        with patch("os.kill") as kill, patch.object(updater.time, "sleep"), \
+                patch.object(updater.sys, "frozen", False, create=True):
             updater._relaunch(app_path)
         self.assertEqual(updater.RESTART_MARKER.read_text(), str(app_path))
         kill.assert_called_once_with(os.getpid(), signal.SIGTERM)
