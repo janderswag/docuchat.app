@@ -54,7 +54,7 @@ class TestMatrix(unittest.TestCase):
         grid.answer = self._orig
 
     def _fake(self, mapping):
-        def fake(question, matter=None, top_k=5, db_path=None):
+        def fake(question, matter=None, top_k=5, db_path=None, source_filename=None):
             return mapping.get(question, {"answer_text": REFUSAL, "citations": [],
                                           "rejected_claims": [], "grounding_chunks": []})
         grid.answer = fake
@@ -62,9 +62,13 @@ class TestMatrix(unittest.TestCase):
     def test_full_matrix_every_cell_present(self):
         self._fake({})  # everything refuses
         cells = list(grid.run_grid("m", self.docs, self.cols, max_workers=2))
-        self.assertEqual(len(cells), 4)  # 2 docs x 2 cols
-        keys = {(c["doc_id"], c["column_id"]) for c in cells}
+        base = [c for c in cells if not c.get("verified_scope")]
+        verify = [c for c in cells if c.get("verified_scope") == "document"]
+        self.assertEqual(len(base), 4)  # 2 docs x 2 cols
+        keys = {(c["doc_id"], c["column_id"]) for c in base}
         self.assertEqual(keys, {(1, "found_q"), (1, "miss_q"), (2, "found_q"), (2, "miss_q")})
+        # D4: every negative cell is re-checked scoped to its own document
+        self.assertEqual({(c["doc_id"], c["column_id"]) for c in verify}, keys)
 
     def test_found_requires_verified_citation(self):
         self._fake({"found?": {"answer_text": "yes", "citations": [_cite("a.pdf")],
@@ -103,7 +107,7 @@ class TestMatrix(unittest.TestCase):
         peak = {"n": 0, "cur": 0}
         lock = threading.Lock()
 
-        def fake(question, matter=None, top_k=5, db_path=None):
+        def fake(question, matter=None, top_k=5, db_path=None, source_filename=None):
             with lock:
                 peak["cur"] += 1
                 peak["n"] = max(peak["n"], peak["cur"])
@@ -124,20 +128,90 @@ class TestMatrix(unittest.TestCase):
 
     def test_one_answer_call_per_question_not_per_cell(self):
         # Council 2026-07-11 Move 2i: the per-cell call was identical across a
-        # column by construction; N docs must not multiply model cost.
+        # column by construction; N docs must not multiply model cost. D4 adds
+        # exactly ONE scoped call per NEGATIVE cell on top of the memoized pass.
         calls = []
         lock = threading.Lock()
 
-        def counting(question, matter=None, top_k=5, db_path=None):
+        def counting(question, matter=None, top_k=5, db_path=None,
+                     source_filename=None):
             with lock:
-                calls.append(question)
+                calls.append((question, source_filename))
             return {"answer_text": REFUSAL, "citations": [], "rejected_claims": [],
                     "grounding_chunks": []}
         grid.answer = counting
         big_docs = [{"doc_id": i, "filename": f"{i}.pdf"} for i in range(5)]
         cells = list(grid.run_grid("m", big_docs, self.cols, max_workers=2))
-        self.assertEqual(len(cells), 10)            # every cell still present
-        self.assertEqual(sorted(calls), ["found?", "miss?"])  # 2 calls, not 10
+        base = [c for c in cells if not c.get("verified_scope")]
+        self.assertEqual(len(base), 10)             # every cell still present
+        unscoped = sorted(q for q, sf in calls if sf is None)
+        self.assertEqual(unscoped, ["found?", "miss?"])  # 2 memoized calls, not 10
+        scoped = [(q, sf) for q, sf in calls if sf is not None]
+        self.assertEqual(len(scoped), 10)           # one per negative cell
+        self.assertEqual(len(calls), 12)            # questions + negative cells
+
+    def test_negative_cell_flips_to_found_under_document_scope(self):
+        # THE D4 scenario (council: false "not located" in a 6+ doc matter):
+        # matter-wide top-5 misses a clause that IS in b.pdf; the scoped re-ask
+        # finds it, and the upgraded cell carries the span-verified citation.
+        calls = []
+        lock = threading.Lock()
+
+        def fake(question, matter=None, top_k=5, db_path=None, source_filename=None):
+            with lock:
+                calls.append((question, source_filename))
+            if question == "found?" and source_filename is None:
+                return {"answer_text": "yes", "citations": [_cite("a.pdf")],
+                        "rejected_claims": [], "grounding_chunks": []}
+            if question == "miss?" and source_filename == "b.pdf":
+                return {"answer_text": "found under scope",
+                        "citations": [_cite("b.pdf", page=7)],
+                        "rejected_claims": [], "grounding_chunks": []}
+            return {"answer_text": REFUSAL, "citations": [], "rejected_claims": [],
+                    "grounding_chunks": []}
+        grid.answer = fake
+        cells = list(grid.run_grid("m", self.docs, self.cols, max_workers=2))
+
+        # arithmetic: 2 memoized question calls + 3 negative cells
+        # ((2,found_q) not_confirmed after post-filter; (1,miss_q) and (2,miss_q)
+        # refused) = exactly 5 answer() calls
+        self.assertEqual(len(calls), 5)
+        scoped = {(q, sf) for q, sf in calls if sf is not None}
+        self.assertEqual(scoped, {("found?", "b.pdf"), ("miss?", "a.pdf"),
+                                  ("miss?", "b.pdf")})
+
+        verify = {(c["doc_id"], c["column_id"]): c for c in cells
+                  if c.get("verified_scope") == "document"}
+        flipped = verify[(2, "miss_q")]
+        self.assertEqual(flipped["status"], "found")
+        self.assertEqual(flipped["citations"][0]["filename"], "b.pdf")
+        self.assertEqual(flipped["citations"][0]["doc_id"], 2)
+        # a true absence stays negative but is now document-verified
+        self.assertEqual(verify[(1, "miss_q")]["status"], "potentially_missing")
+
+    def test_unindexed_document_never_claims_a_verified_check(self):
+        # D4 invariant: if the scoped re-ask raises ValueError (document has no
+        # indexed chunks), NO cell-verify upgrade is emitted for that document —
+        # never claim a per-document check that could not run.
+        def fake(question, matter=None, top_k=5, db_path=None, source_filename=None):
+            if source_filename == "b.pdf":
+                raise ValueError("document not found in the index for this matter")
+            return {"answer_text": REFUSAL, "citations": [], "rejected_claims": [],
+                    "grounding_chunks": []}
+        grid.answer = fake
+        cells = list(grid.run_grid("m", self.docs, self.cols, max_workers=2))
+        verify = [c for c in cells if c.get("verified_scope") == "document"]
+        self.assertEqual({c["filename"] for c in verify}, {"a.pdf"})
+        self.assertEqual(len(verify), 2)   # a.pdf's two negative cells only
+
+    def test_verified_absence_value_names_the_document_scope(self):
+        self._fake({})  # everything refuses, scoped included
+        cells = list(grid.run_grid("m", self.docs, self.cols[:1], max_workers=1))
+        verify = [c for c in cells if c.get("verified_scope") == "document"]
+        self.assertTrue(verify)
+        for c in verify:
+            self.assertEqual(c["value"],
+                             "Not located in this document (checked individually).")
 
     def test_memoized_rows_do_not_share_citation_dicts(self):
         # Two docs with the SAME filename: enrichment on one row must never

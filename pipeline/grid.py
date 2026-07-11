@@ -97,16 +97,70 @@ def evaluate_column(matter, docs, column, db_path=None, top_k=5):
     return cells
 
 
+def verify_negative_cell(matter, cell, db_path=None, top_k=5):
+    """G-SCOPE (D4): re-ask a formerly-negative cell scoped to ITS document.
+
+    The memoized matter-wide pass is cheap and correct for FOUND, but in a fat
+    matter the top-5 saturates with other documents' chunks, so a clause present
+    in THIS document can read "not located". One scoped call per negative cell
+    either upgrades it to found (with a span-verified citation) or confirms the
+    negative with the honest claim "this document's passages were checked".
+    Returns the upgraded cell dict (verified_scope="document"), or None when the
+    document has no indexed chunks — never claim a check that could not run."""
+    try:
+        res = answer(cell["question"], matter=matter, top_k=top_k, db_path=db_path,
+                     source_filename=cell["filename"])
+    except ValueError:
+        return None
+    row = classify_cell({"id": cell["column_id"], "question": cell["question"]},
+                        res, target_filename=cell["filename"])
+    for c in row["citations"]:
+        c["doc_id"] = cell["doc_id"]
+    value = row["value"]
+    if row["status"] == "potentially_missing":
+        # the generic advisory says "passages checked" (matter-wide language);
+        # this cell earned the stronger per-document claim — say so
+        value = "Not located in this document (checked individually)."
+    out = dict(cell)
+    out.update(status=row["status"], value=value, citations=row["citations"],
+               rejected_claims=row["rejected_claims"], verified_scope="document")
+    return out
+
+
 def run_grid(matter, docs, columns, db_path=None, top_k=5, max_workers=3):
     """Yield each cell as its column completes, with BOUNDED concurrency (<= 4
     workers over answer() calls). Column completion order (the SSE route streams
-    them live); a column's cells arrive together — one answer() per question."""
+    them live); a column's cells arrive together — one answer() per question.
+
+    After the memoized pass, every NEGATIVE cell (potentially_missing /
+    not_confirmed) is re-asked scoped to its own document (G-SCOPE, D4) and
+    yielded again with verified_scope="document" — cost is one extra answer()
+    per negative cell, streamed as cell-verify events by the route."""
     workers = _clamp_workers(max_workers)
     if not docs or not columns:
         return
-    with ThreadPoolExecutor(max_workers=workers) as ex:
+    negatives = []
+    ex = ThreadPoolExecutor(max_workers=workers)
+    abandoned = False
+    try:
         futs = [ex.submit(evaluate_column, matter, docs, c, db_path, top_k)
                 for c in columns]
         for fut in as_completed(futs):
             for cell in fut.result():
+                if cell["status"] != "found":
+                    negatives.append(cell)
                 yield cell
+        vfuts = [ex.submit(verify_negative_cell, matter, c, db_path, top_k)
+                 for c in negatives]
+        for fut in as_completed(vfuts):
+            upgraded = fut.result()
+            if upgraded is not None:
+                yield upgraded
+    except GeneratorExit:
+        # consumer left (client disconnect): cancel everything still queued —
+        # a mostly-negative grid can hold ~D×Q real LLM calls in the queue, and
+        # a blocking shutdown would burn them all on a dead connection
+        abandoned = True
+        raise
+    finally:
+        ex.shutdown(wait=not abandoned, cancel_futures=abandoned)

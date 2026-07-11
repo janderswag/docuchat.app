@@ -3017,21 +3017,31 @@
           "' title='" + esc(c.filename) + " p." + esc(c.page) + "'>p." + esc(c.page) + "</a>";
       }
     } else if (cell.status === "potentially_missing") {
-      inner += " <span class='muted'>in the passages checked</span>";
+      // an upgraded cell was re-checked scoped to THIS document (D4) — the
+      // claim is stronger than the matter-wide pass and the copy says so
+      inner += cell.verified_scope === "document"
+        ? " <span class='muted'>in this document (checked individually)</span>"
+        : " <span class='muted'>in the passages checked</span>";
     } else {
-      inner += " <span class='muted'>unverified</span>";
+      inner += cell.verified_scope === "document"
+        ? " <span class='muted'>unverified (checked individually)</span>"
+        : " <span class='muted'>unverified</span>";
     }
     td.className = "grid-cell " + badge;
     td.innerHTML = inner;
   }
 
   function gridToCsv() {
-    var rows = [["Document", "Clause", "Status", "Value", "Citation"]];
+    var rows = [["Document", "Clause", "Status", "Check scope", "Value", "Citation"]];
     gridData.docs.forEach(function (d) {
       gridData.columns.forEach(function (col) {
         var cell = gridData.cells[gridCellId(d.doc_id, col.id)] || {};
         var c = (cell.citations || [])[0];
         rows.push([d.filename, col.name || col.id, cell.status || "",
+          // D4 honesty: a document-verified check is a stronger claim than the
+          // matter-wide pass, and the export must preserve the difference
+          cell.verified_scope === "document" ? "this document, checked individually"
+                                             : "matter-wide passages",
           (cell.value || "").replace(/\s+/g, " "),
           c ? (c.filename + " p." + c.page) : ""]);
       });
@@ -3122,6 +3132,7 @@
           if (!msg) return;
           if (msg.event === "meta") buildGridSkeleton(msg.data);
           else if (msg.event === "cell") fillGridCell(msg.data);
+          else if (msg.event === "cell-verify") fillGridCell(msg.data);
           else if (msg.event === "done") document.getElementById("grid-csv").disabled = false;
         });
       }

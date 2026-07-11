@@ -47,12 +47,18 @@ def post_grid(body: GridRequest):
             "columns": [{"id": c["id"], "name": c.get("name"), "question": c["question"]}
                         for c in columns],
         })
-        count = 0
+        count = verified = 0
         for cell in grid.run_grid(body.matter, docs, columns,
                                   db_path=str(routes_kb.KB_DB),
                                   max_workers=body.max_workers):
-            count += 1
-            yield _event("cell", cell)
-        yield _event("done", {"count": count})
+            # G-SCOPE (D4): negative cells come around again, re-checked scoped
+            # to their own document, as cell-verify upgrade events
+            if cell.get("verified_scope"):
+                verified += 1
+                yield _event("cell-verify", cell)
+            else:
+                count += 1
+                yield _event("cell", cell)
+        yield _event("done", {"count": count, "verified": verified})
 
     return StreamingResponse(stream(), media_type="text/event-stream")

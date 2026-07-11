@@ -59,7 +59,7 @@ class TestGridRoute(unittest.TestCase):
         grid.answer = self._orig
 
     def _fake_answer(self, status="found"):
-        def fake(question, matter=None, top_k=5, db_path=None):
+        def fake(question, matter=None, top_k=5, db_path=None, source_filename=None):
             if status == "found":
                 return {"answer_text": "yes", "citations": [
                     {"filename": "d1.pdf", "page": 2, "chunk_id": "C1", "span": "x",
@@ -86,6 +86,21 @@ class TestGridRoute(unittest.TestCase):
             self.assertEqual(cell["doc_id"], self.doc["id"])
             self.assertEqual(cell["status"], "found")
             self.assertEqual(cell["citations"][0]["doc_id"], self.doc["id"])
+
+    def test_negative_cells_stream_a_cell_verify_upgrade(self):
+        # G-SCOPE (D4): every negative cell comes around again as a cell-verify
+        # event, re-checked scoped to its own document, and done counts both
+        self._fake_answer("missing")
+        r = client.post("/grid", json={"matter": "grid-demo",
+                                       "clause_ids": ["governing_law"]})
+        events = _parse_sse(r.text)
+        verifies = [d for e, d in events if e == "cell-verify"]
+        self.assertEqual(len(verifies), 1)
+        self.assertEqual(verifies[0]["verified_scope"], "document")
+        self.assertEqual(verifies[0]["status"], "potentially_missing")
+        done = [d for e, d in events if e == "done"][0]
+        self.assertEqual(done["count"], 1)
+        self.assertEqual(done["verified"], 1)
 
     def test_meta_lists_rows_and_columns(self):
         self._fake_answer("missing")
