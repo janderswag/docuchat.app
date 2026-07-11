@@ -78,6 +78,7 @@ import routes_clauses  # noqa: E402
 import routes_connections  # noqa: E402
 import routes_connectors  # noqa: E402
 import routes_data  # noqa: E402
+import routes_digest  # noqa: E402
 import routes_grid  # noqa: E402
 import routes_kb  # noqa: E402
 import routes_matters  # noqa: E402
@@ -100,6 +101,7 @@ app.include_router(routes_profile.router)
 app.include_router(routes_connectors.router)
 app.include_router(routes_connections.router)
 app.include_router(routes_data.router)
+app.include_router(routes_digest.router)
 app.include_router(routes_setup.router)
 app.include_router(routes_transcripts.router)
 app.include_router(routes_retention.router)
@@ -147,6 +149,9 @@ def _warm_chat_model():
         import embed_store
         embed_store.preload_embedder()
     threading.Thread(target=_warm, name="ollama-preload", daemon=True).start()
+
+    import digest
+    digest.backfill_async(routes_kb.KB_DB)
 
 
 @app.on_event("startup")

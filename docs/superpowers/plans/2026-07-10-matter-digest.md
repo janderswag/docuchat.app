@@ -1445,7 +1445,7 @@ git commit -m "test(digest): fence — answer path has no route to matter_facts"
 
 **Interfaces:**
 - Consumes: `digest.pages_from_store`, `digest._groups`, `digest._extract_call`, `digest.gate_facts`, `verifier._norm_map`.
-- Produces: `python3 run_digest_eval.py --inventory ../eval/digest_inventory.json --db <lancedb path> --catalog <catalog path>` → per-type recall report + drop counts, exit 1 below targets (dates/amounts ≥ 0.85, parties ≥ 0.90).
+- Produces: `python3 run_digest_eval.py --inventory ../eval/digest_inventory.json --db <lancedb path>` → per-type recall report + drop counts, exit 1 below targets (dates/amounts ≥ 0.85, parties ≥ 0.90).
 
 - [ ] **Step 1: Define the inventory format** (`eval/digest_inventory.example.json`)
 
@@ -1620,7 +1620,7 @@ Pick 3–4 eval-corpus docs (one long MSA, one pleading, one correspondence set)
 
 - [ ] **Step 3: Run G-DIG** (release checkout, Ollama up)
 
-Run: `python3 run_digest_eval.py --inventory ../eval/digest_inventory.json --db <eval lancedb> --catalog <eval catalog>`
+Run: `python3 run_digest_eval.py --inventory ../eval/digest_inventory.json --db <eval lancedb>`
 Expected: PASS (dates/amounts ≥85%, parties ≥90%). If FAIL: iterate the prompt (bump `EXTRACTOR_VERSION`), never loosen the gate. Record the drop count in the run log.
 
 - [ ] **Step 4: Value-correctness spot grade**
