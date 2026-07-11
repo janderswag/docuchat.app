@@ -3,9 +3,29 @@
 > Single source of truth for "where are we right now." Update this after every working session.
 > Read at the start of each session alongside `CLAUDE.md`.
 
-_Last updated: 2026-07-11 (overnight sprint)_
+_Last updated: 2026-07-11 (session close)_
 
 ## Status
+
+**2026-07-11 morning — v0.4.2 RELEASED (real restart after update + slash commands).
+SESSION CLOSED — next session starts from this entry + docs/prompts/2026-07-11-session-
+handoff.md (queued backlog, verify-first list, hard-won lessons).** Two owner reports
+fixed same-morning: (1) stuck-on-"Restarting" after an update — the packaged app is ONE
+process (uvicorn daemon thread + main thread parked in the Cocoa run loop), so the
+updater's in-process SIGTERM sat pending forever and macOS `open` merely re-activated the
+still-running old instance; the LAUNCHER now owns relaunch (updater writes a restart
+marker, a watcher thread destroys the window cleanly and a detached relauncher polls
+`kill -0 <pid>` until the old process is really gone before `open` — review caught and
+killed a fixed-sleep race with Ollama's up-to-16s teardown, plus a pending-self-SIGTERM
+interaction in frozen mode; UI falls back to "Update installed. Quit and reopen
+docuchat." after 25s). (2) typing "/" showed nothing — slash-command palette shipped
+(/deadlines /overview /compare /review /find /summarize /copy), existing features only,
+keyboard-navigable, NEVER auto-sends (attorney always presses Ask). Both through the full
+gate: 34+16 targeted tests green, packaged smoke gate PASSED (28 connectors, upload,
+overview, version 0.4.2), signed + notarized + stapled, published Latest. Answer path
+still untouched since the v0.4.0 63/63 gate. **Owner verify-first next session:** the
+v0.4.1→0.4.2 in-place update is the launcher-owned relaunch's first real-world run —
+watch whether the window truly closes and relaunches itself.**
 
 **2026-07-11 overnight — v0.4.1 RELEASED: CONNECTORS FOR REAL + deadline calendar export
 + chat fixes. The "Make It Real" council sprint (docs/council/2026-07-10-council-make-it-
