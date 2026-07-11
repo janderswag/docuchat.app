@@ -31,6 +31,9 @@ log = logging.getLogger("docuchat.digest")
 _QUEUE = queue.Queue()
 _START_LOCK = threading.Lock()
 _started = False
+# Read-only progress snapshot (mirrors ingest_worker._state) — lets a caller tell a
+# doc that's still queued/in-flight apart from one that's permanently unstamped.
+_state = {"current": None}
 
 DIGEST_MODEL = os.environ.get("LDI_CHAT_MODEL", "qwen3:14b")
 EXTRACTOR_VERSION = "digest-v4 " + DIGEST_MODEL   # bump v1 on any prompt/schema change
@@ -321,6 +324,7 @@ def _ensure_worker():
 def _loop():
     while True:
         doc_id, db_path, catalog_db = _QUEUE.get()
+        _state["current"] = doc_id
         try:
             _yield_to_chat()
             extract_for_document(doc_id, db_path, catalog_db=catalog_db)
@@ -329,7 +333,15 @@ def _loop():
             # for the unexpected — fail loud in the log, keep the worker alive.
             log.exception("digest: queued extraction crashed: doc_id=%s", doc_id)
         finally:
+            _state["current"] = None
             _QUEUE.task_done()
+
+
+def status():
+    """Read-only snapshot: queue depth + the in-flight doc id, if any. Used to tell a
+    doc that's still queued/in-flight apart from one left permanently unstamped after
+    extract_for_document gave up on it (digest_progress's "stuck" count)."""
+    return {"queue_depth": _QUEUE.qsize(), "current": _state["current"]}
 
 
 def enqueue(doc_id, db_path, catalog_db=None):

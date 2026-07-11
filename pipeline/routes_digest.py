@@ -83,7 +83,19 @@ def _build_ics(fact_key, matter_display, label, confirmed_date, span, filename, 
 def overview(matter: str):
     _require_matter(matter)
     reviews = catalog.reviews_for_matter(matter)
-    out = {"building": catalog.digest_progress(matter, digest.EXTRACTOR_VERSION),
+    building = catalog.digest_progress(matter, digest.EXTRACTOR_VERSION)
+    # Trust fix (gaps-audit digest empty-state honesty): a doc stays unstamped
+    # (digest_version NULL/stale) forever when extract_for_document gives up on it
+    # (a store-read failure or a repeated extraction-call failure). That looks
+    # identical to "still building" unless we also know whether the digest worker is
+    # still working on anything, anywhere — if it's idle and this matter still has
+    # undigested ready docs, those docs are stuck, not in progress. (System-wide idle
+    # is a proxy: exact for the common one-matter-digesting-at-a-time case.)
+    pending = building["total"] - building["done"]
+    dstatus = digest.status()
+    idle = dstatus["queue_depth"] == 0 and dstatus["current"] is None
+    building["stuck"] = pending if (pending > 0 and idle) else 0
+    out = {"building": building,
            "deadlines": [], "timeline": [], "parties": [], "amounts": [],
            "terms": [], "refs": [], "dismissed_count": 0}
     buckets = {"party": "parties", "amount": "amounts",

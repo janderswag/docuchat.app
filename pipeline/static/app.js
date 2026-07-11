@@ -895,7 +895,11 @@
     }
 
     if (overviewPoll) { clearTimeout(overviewPoll); overviewPoll = null; }
-    var building = data.building.total > 0 && data.building.done < data.building.total;
+    // Trust fix (gaps-audit digest empty-state honesty): "stuck" docs (unstamped,
+    // and nothing left in the digest queue to fix that) are done trying, not still
+    // building — stop claiming otherwise and stop polling for a change that won't come.
+    var stuckCount = data.building.stuck || 0;
+    var building = data.building.total > 0 && data.building.done < data.building.total && !stuckCount;
     if (building) overviewPoll = setTimeout(function () { renderMatterOverview(slug); }, 5000);
 
     if (box.contains(document.activeElement)) return;   // attorney is mid-interaction
@@ -1009,8 +1013,10 @@
     if (data.dismissed_count)
       html += "<div class='muted' style='font-size:12px'>dismissed (" + data.dismissed_count + ")</div>";
     if (!html && !building)
-      html = "<div class='panel muted'>No extractable facts yet — the digest builds " +
-        "automatically when documents are added.</div>";
+      html = "<div class='panel muted'>No extractable facts found in this matter's documents." +
+        (stuckCount ? " (" + stuckCount + " document" + (stuckCount === 1 ? "" : "s") +
+          " could not be processed - they remain searchable in chat.)" : "") +
+        "</div>";
     box.innerHTML = html;
 
     box.querySelectorAll(".ov-act").forEach(function (b) {
@@ -1305,9 +1311,16 @@
   // First-run guidance under the greeting (P1.4): a 3-step path when no matters exist,
   // an "add documents" nudge for an empty matter, and one-click suggested questions for
   // the seeded sample matter. Never a bare dead-end.
+  // Trust fix (gaps-audit first-run race): a freshly seeded matter's documents can
+  // still be queued/parsing for ~20s. Answering a suggested question before then can
+  // 400/refuse ("chunks" table not yet built), which reads as broken. The suggestion
+  // buttons stay disabled (manual typing is never blocked) until /matters reports
+  // pending_count === 0, polling on the same cadence as the matter overview builder.
+  var chatGuidePoll = null;
   function renderChatGuide() {
     var box = document.getElementById("chat-guide");
     if (!box) return;
+    if (chatGuidePoll) { clearTimeout(chatGuidePoll); chatGuidePoll = null; }
     var active = null;
     state.matters.forEach(function (m) { if (m.slug === state.matter) active = m; });
     if (!state.matters.length) {
@@ -1324,11 +1337,22 @@
         "<a href='#' data-goto='hub' data-open-matter='" + esc(active.slug) + "'>Add documents</a>, " +
         "wait for Ready, then ask.</div>";
     } else if (active && active.sample && (active.suggested_questions || []).length) {
+      var stillPreparing = active.pending_count > 0;
       box.innerHTML =
         "<div class='guide-chips'><span class='muted'>Try a question against the sample documents:</span> " +
         active.suggested_questions.map(function (q) {
-          return "<button class='btn secondary guide-q' data-q='" + esc(q) + "'>" + esc(q) + "</button>";
-        }).join(" ") + "</div>";
+          return "<button class='btn secondary guide-q'" + (stillPreparing ? " disabled" : "") +
+            " data-q='" + esc(q) + "'>" + esc(q) + "</button>";
+        }).join(" ") + "</div>" +
+        (stillPreparing ? "<p class='muted' style='font-size:12px;margin-top:2px'>" +
+          "Preparing your sample matter…</p>" : "");
+      if (stillPreparing) {
+        chatGuidePoll = setTimeout(async function () {
+          chatGuidePoll = null;
+          try { await fillMatterPickers(); } catch (e) {}
+          renderChatGuide();
+        }, 2000);
+      }
     } else if (active && active.doc_count > 0 && practicePrompts().length) {
       // UX-5: prompts tailored to the attorney's practice areas. They FILL the
       // composer (editable templates), never auto-send — the user stays in control.
@@ -2134,6 +2158,9 @@
         esc(Object.values(s.hardening.backup_exclusions || {}).join("; ") || "n/a") +
         "</td></tr>") : "") +
       "</table></div>" +
+      (s.hardening && s.hardening.time_machine_failed ?
+        "<div class='panel muted'>Could not exclude the data folder from Time Machine " +
+        "backups. Your encrypted data may be included in backups.</div>" : "") +
       "<div class='panel'><b>Updates</b>" +
       "<label style='display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px'>" +
       "<input type='checkbox' id='update-check-toggle'" +

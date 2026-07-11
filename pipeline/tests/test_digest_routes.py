@@ -5,12 +5,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
 PIPELINE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PIPELINE_DIR))
 import catalog  # noqa: E402
+import digest  # noqa: E402
 import api  # noqa: E402
 
 client = TestClient(api.app)
@@ -54,7 +56,9 @@ class TestOverviewRoutes(unittest.TestCase):
         self.assertEqual(body["parties"][0]["value"]["name"], "Nimbus Analytics LLC")
         self.assertEqual(body["deadlines"][0]["filename"], "msa.pdf")
         self.assertIsNone(body["deadlines"][0]["review"])
-        self.assertEqual(body["building"], {"done": 0, "total": 1})
+        # "v1" predates the real EXTRACTOR_VERSION and nothing is queued to redo it
+        # (the digest worker never started in this test process) -> stuck, not building.
+        self.assertEqual(body["building"], {"done": 0, "total": 1, "stuck": 1})
 
     def test_unknown_matter_404(self):
         self.assertEqual(client.get("/matters/nope/overview").status_code, 404)
@@ -104,6 +108,50 @@ class TestOverviewRoutes(unittest.TestCase):
         r = client.post("/matters/nimbus-dispute/facts/dl/review",
                         json={"status": "confirmed", "confirmed_date": "July 24"})
         self.assertEqual(r.status_code, 422)
+
+
+class TestDigestStuckSignal(unittest.TestCase):
+    """Trust fix (gaps-audit digest empty-state honesty): a ready doc that never gets
+    a current digest_version stamp looks identical to "still building" unless the
+    overview also knows whether the digest worker is idle. building.stuck must be 0
+    while something is still queued/in-flight, and equal to the pending count once
+    the worker has genuinely given up (nothing left to try)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._cat, catalog.DEFAULT_DB = catalog.DEFAULT_DB, self.tmp / "cat.db"
+        catalog.create_matter("Stuck Matter")
+        path = self.tmp / "doc.pdf"
+        path.write_text("dummy content")
+        self.doc = catalog.add_document("stuck-matter", path, status="ready")
+
+    def tearDown(self):
+        catalog.DEFAULT_DB = self._cat
+
+    def test_not_stuck_while_digest_worker_is_busy(self):
+        with mock.patch.object(digest, "status",
+                               return_value={"queue_depth": 0, "current": self.doc["id"]}):
+            body = client.get("/matters/stuck-matter/overview").json()
+        self.assertEqual(body["building"], {"done": 0, "total": 1, "stuck": 0})
+
+    def test_not_stuck_while_something_is_queued(self):
+        with mock.patch.object(digest, "status",
+                               return_value={"queue_depth": 1, "current": None}):
+            body = client.get("/matters/stuck-matter/overview").json()
+        self.assertEqual(body["building"], {"done": 0, "total": 1, "stuck": 0})
+
+    def test_stuck_when_worker_idle_and_undigested(self):
+        with mock.patch.object(digest, "status",
+                               return_value={"queue_depth": 0, "current": None}):
+            body = client.get("/matters/stuck-matter/overview").json()
+        self.assertEqual(body["building"], {"done": 0, "total": 1, "stuck": 1})
+
+    def test_no_stuck_once_fully_digested(self):
+        catalog.replace_facts(self.doc["id"], "stuck-matter", [], digest.EXTRACTOR_VERSION)
+        with mock.patch.object(digest, "status",
+                               return_value={"queue_depth": 0, "current": None}):
+            body = client.get("/matters/stuck-matter/overview").json()
+        self.assertEqual(body["building"], {"done": 1, "total": 1, "stuck": 0})
 
 
 if __name__ == "__main__":

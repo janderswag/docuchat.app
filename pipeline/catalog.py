@@ -443,7 +443,9 @@ def list_matters(db_path=None):
     try:
         rows = conn.execute(
             "SELECT m.*, (SELECT COUNT(*) FROM documents d WHERE d.matter_slug = m.slug) "
-            "AS doc_count FROM matters m ORDER BY m.display_name"
+            "AS doc_count, (SELECT COUNT(*) FROM documents d WHERE d.matter_slug = m.slug "
+            "AND d.status IN ('queued', 'parsing')) AS pending_count "
+            "FROM matters m ORDER BY m.display_name"
         ).fetchall()
         return [dict(r) for r in rows]
     finally:

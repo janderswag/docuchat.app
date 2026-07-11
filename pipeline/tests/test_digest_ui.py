@@ -60,6 +60,23 @@ class TestOverviewUI(unittest.TestCase):
         self.assertIn("ov-disclaimer", APP_JS)
         self.assertIn(".ov-disclaimer", APP_CSS)
 
+    def test_empty_state_distinguishes_no_facts_from_unreadable(self):
+        # Trust fix (gaps-audit digest empty-state honesty): the empty state must
+        # name the two different honest outcomes instead of one blanket "not built
+        # yet" message that never resolves for a permanently stuck doc.
+        self.assertIn("No extractable facts found in this matter's documents.", APP_JS)
+        self.assertIn("could not be processed - they remain searchable in chat.", APP_JS)
+        self.assertNotIn("No extractable facts yet", APP_JS)
+
+    def test_building_flag_accounts_for_stuck_docs(self):
+        overview_fn = APP_JS[APP_JS.index("async function renderMatterOverview"):
+                             APP_JS.index("function tlRow")]
+        self.assertIn("building.stuck", overview_fn)
+        self.assertIn("stuckCount", overview_fn)
+        # the "still building" claim (and its poll) must not survive a stuck doc
+        building_line = overview_fn[overview_fn.index("var building ="):]
+        self.assertIn("!stuckCount", building_line[:120])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
