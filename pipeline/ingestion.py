@@ -10,9 +10,12 @@ Scope: page-accurate text extraction + OCR routing only. No chunking, embeddings
 vector DB, reranker, LLM, or HTTP surface.
 """
 
+import os
 from pathlib import Path
 
 import fitz  # PyMuPDF
+
+import apppaths
 
 # A page with fewer than this many non-whitespace extractable chars is treated as
 # having no real text layer (CE_PLAN §8 step 3).
@@ -25,6 +28,24 @@ _IMAGE_COVER_THRESHOLD = 0.5
 # flagged ocr_failed and NOT indexed as authoritative text (CE_PLAN §8 failure modes).
 _MIN_OCR_CONFIDENCE = 50.0
 _OCR_DPI = 300  # render resolution for scanned pages
+
+
+def configure_tesseract():
+    """Point pytesseract at the vendored binary when it exists (frozen app:
+    Contents/Resources/pipeline/vendor/tesseract, shipped by B1's
+    desktop/vendor_tesseract.sh). Dev machines keep the system tesseract.
+    Idempotent; returns the resolved command for logging."""
+    vend = apppaths.assets_root() / "vendor" / "tesseract"
+    binary = vend / "bin" / "tesseract"
+    if binary.is_file():
+        import pytesseract
+        pytesseract.pytesseract.tesseract_cmd = str(binary)
+        os.environ["TESSDATA_PREFIX"] = str(vend / "share" / "tessdata")
+        return str(binary)
+    return "system default"
+
+
+configure_tesseract()
 
 
 def extract_pages(pdf_path):
