@@ -350,12 +350,15 @@ def _is_refusal(answer_text):
     return REFUSAL.lower() in (answer_text or "").lower()
 
 
-def _retrieve_wide(question, matter, db_path):
-    """The refusal second-pass retrieval: wider pool, hybrid, anchor-fed FTS arm."""
+def _retrieve_wide(question, matter, db_path, source_filename=None):
+    """The refusal second-pass retrieval: wider pool, hybrid, anchor-fed FTS arm.
+    A scoped ask stays scoped here too (G-SCOPE) — the retry widens the pool,
+    never the document boundary."""
     anchors = extract_anchors(question)
     return retrieve(question, matter=matter, top_k=SECOND_PASS_TOP_K,
                     candidate_k=SECOND_PASS_CANDIDATE_K, hybrid=True,
-                    fts_query=" ".join(anchors) if anchors else None, db_path=db_path)
+                    fts_query=" ".join(anchors) if anchors else None, db_path=db_path,
+                    source_filename=source_filename)
 
 
 def _build_messages(chunks, question):
@@ -389,10 +392,11 @@ def _build_messages(chunks, question):
     return messages, grounding
 
 
-def _assemble_context(question, matter, top_k, db_path):
+def _assemble_context(question, matter, top_k, db_path, source_filename=None):
     """Retrieve the matter-filtered chunks and build (messages, grounding). Shared by
     answer() and answer_stream() so the prompt + grounding are identical on both paths."""
-    chunks = retrieve(question, matter=matter, top_k=top_k, db_path=db_path, rerank=False)
+    chunks = retrieve(question, matter=matter, top_k=top_k, db_path=db_path, rerank=False,
+                      source_filename=source_filename)
     return _build_messages(chunks, question)
 
 
@@ -420,7 +424,8 @@ def _stream_tokens(messages, host=None, model=CHAT_MODEL):
                 break
 
 
-def answer(question, matter=None, top_k=5, db_path=None, with_confidence=False):
+def answer(question, matter=None, top_k=5, db_path=None, with_confidence=False,
+           source_filename=None):
     """Answer ``question`` grounded in the matter-filtered context; refuse if unsupported.
 
     Returns {answer_text, citations:[{filename,page,chunk_id}],
@@ -429,8 +434,12 @@ def answer(question, matter=None, top_k=5, db_path=None, with_confidence=False):
     with_confidence=False (default) is byte-identical to the original behavior — no logprobs
     requested. with_confidence=True adds a display-only ``confidence`` (B4) computed from the
     response logprobs; it never touches the verifier, so citations are unchanged.
+
+    source_filename (G-SCOPE): hard-scope BOTH retrieval passes to one document
+    inside the matter. Default None is byte-identical to the unscoped behavior.
     """
-    messages, grounding = _assemble_context(question, matter, top_k, db_path)
+    messages, grounding = _assemble_context(question, matter, top_k, db_path,
+                                            source_filename=source_filename)
     confidence = None
     if with_confidence:
         resp = _post_chat(messages, want_logprobs=True)
@@ -452,7 +461,8 @@ def answer(question, matter=None, top_k=5, db_path=None, with_confidence=False):
     # refusal can be upgraded to a verified answer but never to an unverified one.
     second_pass = False
     if _is_refusal(answer_text):
-        wide_chunks = _retrieve_wide(question, matter, db_path)
+        wide_chunks = _retrieve_wide(question, matter, db_path,
+                                     source_filename=source_filename)
         messages2, grounding2 = _build_messages(wide_chunks, question)
         raw2 = _chat(messages2)
         answer_text2 = _THINK_RE.sub("", raw2).strip()
@@ -475,7 +485,8 @@ def answer(question, matter=None, top_k=5, db_path=None, with_confidence=False):
     return result
 
 
-def answer_stream(question, matter=None, top_k=5, db_path=None):
+def answer_stream(question, matter=None, top_k=5, db_path=None,
+                  source_filename=None):
     """Generator for the streaming chat path (B6). Yields ``{"type":"token","text":...}``
     deltas as the model generates, then a final ``{"type":"result", ...}`` whose citations
     come from running the EXACT verifier on the COMPLETE text (never a partial) — so
@@ -485,7 +496,8 @@ def answer_stream(question, matter=None, top_k=5, db_path=None):
     retrieved (chunk-derived) passages the model is about to read. These are candidate
     context for display as "reading", NOT verified citations; the verified citations
     still come only from the final verifier pass in the ``result`` event."""
-    messages, grounding = _assemble_context(question, matter, top_k, db_path)
+    messages, grounding = _assemble_context(question, matter, top_k, db_path,
+                                            source_filename=source_filename)
     yield {"type": "sources", "grounding": grounding}
     parts = []
     for tok in _stream_tokens(messages):
@@ -500,7 +512,8 @@ def answer_stream(question, matter=None, top_k=5, db_path=None):
     # 'sources', and the retry's tokens. Adopted only if span-verified non-refusal —
     # same rule as answer().
     if _is_refusal(answer_text):
-        wide_chunks = _retrieve_wide(question, matter, db_path)
+        wide_chunks = _retrieve_wide(question, matter, db_path,
+                                     source_filename=source_filename)
         messages2, grounding2 = _build_messages(wide_chunks, question)
         yield {"type": "second_pass"}
         yield {"type": "sources", "grounding": grounding2}
