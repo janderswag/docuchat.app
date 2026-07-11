@@ -4,11 +4,13 @@ behavior. All subprocess/network seams are monkeypatched — no real DMG,
 no codesign, no egress.
 """
 
+import signal
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -77,6 +79,29 @@ class TestSwapRollback(unittest.TestCase):
         self.assertEqual((self.current / "Contents" / "version.txt").read_text(),
                          "old")
         self.assertFalse((self.tmp / "docuchat.app.replaced").exists())
+
+
+class TestRelaunch(unittest.TestCase):
+    """The launcher, not updater.py, must own the actual relaunch (see the module
+    docstring): _relaunch writes the restart marker with the bundle path for
+    desktop/launcher.py's _watch_restart_marker to pick up, then still SIGTERMs
+    itself (the server exiting remains the signal for a dev/subprocess launch)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._orig_marker = updater.RESTART_MARKER
+        updater.RESTART_MARKER = self.tmp / ".update-restart"
+
+    def tearDown(self):
+        updater.RESTART_MARKER = self._orig_marker
+
+    def test_writes_marker_with_app_path_and_sigterms(self):
+        import os
+        app_path = self.tmp / "docuchat.app"
+        with patch("os.kill") as kill, patch.object(updater.time, "sleep"):
+            updater._relaunch(app_path)
+        self.assertEqual(updater.RESTART_MARKER.read_text(), str(app_path))
+        kill.assert_called_once_with(os.getpid(), signal.SIGTERM)
 
 
 class TestVerifyBeforeSwap(unittest.TestCase):

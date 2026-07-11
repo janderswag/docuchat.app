@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import time
 import os
 import unittest
@@ -198,6 +199,63 @@ class TestWindowFirstLaunch(unittest.TestCase):
             self.assertTrue(fake_server.should_exit, "in-process server not stopped")
         finally:
             signal.signal, launcher.stop_server, os.kill = orig_signal, orig_stop, orig_kill
+
+
+class _FakeWindow:
+    def __init__(self):
+        self.destroyed = False
+
+    def destroy(self):
+        self.destroyed = True
+
+
+class TestRestartMarkerWatch(unittest.TestCase):
+    """The launcher-owned relaunch (fixes the stuck-on-"Restarting…" bug): a
+    background thread notices updater.py's restart marker and drives the actual
+    relaunch + window teardown, since only the main thread's window.destroy() can
+    safely unblock webview.start() — a raw SIGTERM to the shared in-process server
+    can sit pending forever while the main thread is in the native GUI loop."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.marker = self.tmp / ".update-restart"
+        self._orig_env = os.environ.get("DOCUCHAT_DATA_DIR")
+        os.environ["DOCUCHAT_DATA_DIR"] = str(self.tmp)
+
+    def tearDown(self):
+        if self._orig_env is None:
+            os.environ.pop("DOCUCHAT_DATA_DIR", None)
+        else:
+            os.environ["DOCUCHAT_DATA_DIR"] = self._orig_env
+
+    def test_marker_path_respects_data_dir_override(self):
+        self.assertEqual(launcher._restart_marker_path(), self.marker)
+
+    def test_marker_present_spawns_relauncher_deletes_marker_destroys_window(self):
+        app_path = self.tmp / "docuchat.app"
+        self.marker.write_text(str(app_path))
+        window = _FakeWindow()
+        with patch.object(launcher.subprocess, "Popen") as popen:
+            launcher._watch_restart_marker(window, poll=0.01)
+        self.assertFalse(self.marker.exists(), "marker not consumed")
+        self.assertTrue(window.destroyed, "window.destroy() not called")
+        cmd = popen.call_args[0][0]
+        self.assertIn(str(app_path), cmd[-1])
+        self.assertIn("open", cmd[-1])
+
+    def test_no_marker_is_a_noop_a_crash_must_not_relaunch_loop(self):
+        app_path = self.tmp / "docuchat.app"
+        window = _FakeWindow()
+        with patch.object(launcher.subprocess, "Popen"):
+            t = threading.Thread(target=launcher._watch_restart_marker,
+                                 args=(window,), kwargs={"poll": 0.02}, daemon=True)
+            t.start()
+            time.sleep(0.1)
+            self.assertFalse(window.destroyed, "watcher fired with no marker present")
+            self.marker.write_text(str(app_path))   # only an explicit marker (a
+            t.join(timeout=5)                        # user-clicked update) is consent
+            self.assertTrue(window.destroyed)
+        self.assertFalse(self.marker.exists())
 
 
 if __name__ == "__main__":

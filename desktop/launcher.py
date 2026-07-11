@@ -11,7 +11,11 @@ citation verifier. It:
   4. opens the first-run wizard (/setup, which drops into /app when ready) in a pywebview
      window,
   5. kills the child server on quit — whether the window is closed, the process exits
-     normally, OR the launcher is hard-killed (no orphaned uvicorn).
+     normally, OR the launcher is hard-killed (no orphaned uvicorn),
+  6. watches for pipeline/updater.py's restart marker (a user-clicked in-place update)
+     and OWNS the relaunch: spawns the new app detached, destroys the window, exits
+     cleanly. Only the launcher's main thread can safely do this (see
+     _watch_restart_marker) — a background server thread cannot.
 
 Cross-platform process handling (D-61): POSIX uses sessions + signals (start_new_session,
 SIGTERM/SIGKILL, killpg); Windows — which has no POSIX signals or process groups — uses a new
@@ -33,6 +37,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -378,6 +383,54 @@ def install_cleanup_live(handles):
     return _handler
 
 
+def _restart_marker_path():
+    """Where updater.py drops its restart marker. Mirrors pipeline/apppaths.py's
+    data_root() rather than importing it, so this module stays import-safe/headless
+    (the module docstring's guarantee) without needing the pipeline dir on sys.path."""
+    override = os.environ.get("DOCUCHAT_DATA_DIR")
+    if override:
+        return Path(override) / ".update-restart"
+    if getattr(sys, "frozen", False):
+        return Path.home() / "Library" / "Application Support" / "docuchat" / ".update-restart"
+    return PIPELINE_DIR / ".update-restart"
+
+
+def _watch_restart_marker(window, poll=0.5):
+    """Background thread: the only reliable way to notice an in-place update wants to
+    restart the app. The packaged build runs uvicorn IN-PROCESS (start_server_frozen),
+    sharing this OS process with the pywebview GUI, whose main thread is blocked inside
+    the native macOS run loop for the whole session — a bare SIGTERM from updater.py can
+    sit pending forever because the interpreter never returns to bytecode to run the
+    registered handler, leaving the window stuck showing "Restarting…" (the bug this
+    closes). window.destroy() is safe to call from ANY thread — pywebview marshals it
+    onto the main run loop (AppHelper.callAfter), the same mechanism evaluate_js() from
+    boot() already relies on — so this thread notices the marker and drives the actual
+    relaunch + shutdown without needing a signal to ever be delivered.
+
+    No marker: no-op, forever — a server crash must never relaunch-loop; the marker is
+    the explicit consent from a user-clicked update."""
+    marker = _restart_marker_path()
+    while True:
+        time.sleep(poll)
+        if not marker.exists():
+            continue
+        app_path = marker.read_text().strip()
+        try:
+            marker.unlink()
+        except OSError:
+            pass
+        if app_path:
+            # by the time `open` runs, the process below will already be tearing down
+            # (window.destroy() -> webview.start() returns -> main()'s finally -> exit);
+            # the sleep gives that a moment to finish so `open` launches fresh instead of
+            # just re-activating a not-yet-dead instance.
+            subprocess.Popen(["/bin/sh", "-c", f'sleep 2; open "{app_path}"'],
+                             start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        window.destroy()
+        return
+
+
 # UX-10: the splash the window shows INSTANTLY at launch, before the engine exists.
 # Inline HTML (no server yet, no assets) matching the app's Ledger look.
 SPLASH_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
@@ -476,6 +529,11 @@ def main(port=DEFAULT_PORT):
         "docuchat", html=SPLASH_HTML,
         width=1200, height=820, min_size=(900, 640),
     )
+    # Guarded by construction, not just by condition: DOCUCHAT_SMOKE=1 always returns
+    # above before a window (or this thread) ever exists, so the restart-marker flow
+    # can never fire during a smoke run.
+    threading.Thread(target=_watch_restart_marker, args=(window,),
+                     name="update-restart-watch", daemon=True).start()
 
     def boot():
         try:

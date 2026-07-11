@@ -162,7 +162,16 @@
           if (s.state === "downloading") setLabel("Downloading… " + (s.pct || 0) + "%");
           else if (s.state === "verifying") setLabel("Verifying…");
           else if (s.state === "installing") setLabel("Installing…");
-          else if (s.state === "restarting") { setLabel("Restarting…"); return; }
+          else if (s.state === "restarting") {
+            setLabel("Restarting…");
+            // Honest fallback: if the app is still here 25s later, the automatic
+            // relaunch did not happen (this label survives it) — say so instead of
+            // leaving "Restarting…" up forever.
+            setTimeout(function () {
+              setLabel("Update installed. Quit and reopen docuchat.");
+            }, 25000);
+            return;
+          }
           else if (s.state === "error") {
             installing = false;
             setLabel("Update available" + (u.latest ? " <span class='upd-ver'>" +

@@ -51,6 +51,13 @@ class TestAppShell(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("javascript", r.headers["content-type"])
 
+    def test_update_restarting_has_an_honest_fallback_label(self):
+        # If the launcher-owned relaunch (desktop/launcher.py) ever fails to fire, the
+        # sidebar must stop claiming "Restarting…" forever and tell the user what to do.
+        js = client.get("/static/app.js").text
+        self.assertIn("Restarting…", js)
+        self.assertIn("Update installed. Quit and reopen docuchat.", js)
+
     def test_static_css_served_locally(self):
         r = client.get("/static/app.css")
         self.assertEqual(r.status_code, 200)
