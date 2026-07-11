@@ -69,6 +69,26 @@ def _matter_filter(table, matter, cache_key):
     return f"matter = '{matter.replace(chr(39), chr(39) * 2)}'"
 
 
+def _scope_filter(table, matter, source_filename, cache_key):
+    """source_filename hard pre-filter (G-SCOPE, council 2026-07-11). Requires a
+    matter (scoping is within-matter only) and validates against the store's
+    filenames FOR THAT MATTER, so a typo — or a filename that only exists in a
+    different matter — can never silently become search-all or cross-matter."""
+    if source_filename is None:
+        return None
+    if matter is None:
+        raise ValueError("source_filename scoping requires a matter")
+    mfilt = _matter_filter(table, matter, cache_key)   # validates + escapes once
+    names = {r["source_filename"] for r in
+             table.search().select(["source_filename", "matter"])
+                  .where(mfilt, prefilter=True)
+                  .limit(max(table.count_rows(), 1)).to_arrow().to_pylist()}
+    if source_filename not in names:
+        raise ValueError("document not found in the index for this matter "
+                         f"(unknown, or still processing): {source_filename!r}")
+    return f"source_filename = '{source_filename.replace(chr(39), chr(39) * 2)}'"
+
+
 def _ensure_fts_index(table):
     """Ensure a NATIVE LanceDB full-text (BM25/inverted) index exists on ``text``.
     Built lazily on first hybrid use, then reused. (LanceDB 0.33 removed tantivy-based
@@ -95,11 +115,15 @@ def _rrf_fuse(dense_rows, fts_rows, top_k, k=_RRF_K):
 
 
 def retrieve(question, matter=None, top_k=5, db_path=None, rerank=False, candidate_k=20,
-             hybrid=False, fts_query=None):
+             hybrid=False, fts_query=None, source_filename=None):
     """Return the top-k chunks for ``question``, optionally hard-scoped to ``matter``.
 
     matter is None -> explicit search-all. matter set -> validated against the
     store's known matters, then a hard pre-filter applied before similarity.
+
+    source_filename (G-SCOPE): additionally hard-scope to ONE document inside the
+    matter (validated per matter; requires ``matter``). Default None is the
+    byte-identical unscoped path — the 63/63 golden gate must never move.
 
     hybrid=True (M3, G-HYB): fuse dense vector search with native BM25 full-text search
     via Reciprocal Rank Fusion. The matter pre-filter (D-18) is applied to BOTH arms
@@ -115,6 +139,11 @@ def retrieve(question, matter=None, top_k=5, db_path=None, rerank=False, candida
     key = str(db_path or _DEFAULT_DB)
     table = open_table(key)
     filt = _matter_filter(table, matter, key)
+    sf = _scope_filter(table, matter, source_filename, key)
+    if filt and sf:
+        filt = f"({filt}) AND ({sf})"
+    elif sf:
+        filt = sf
 
     def _scoped(search):
         return search.where(filt, prefilter=True) if filt else search
