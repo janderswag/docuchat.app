@@ -34,8 +34,23 @@ definition of done (docs/council/2026-07-11-council-review-compare-and-ingestion
 - Time Machine: still NO backup destination on this machine (no external drive
   found this session; an APFS local snapshot was taken as interim). Plug in a drive.
 
-## Queued next-cycle (council §6 non-goals, reaffirmed)
+## Queued next-cycle (council §6 non-goals, reaffirmed; owner additions 2026-07-11)
 
+- **Outlook email (owner-requested, first OAuth tenant).** No key-paste path exists —
+  Microsoft retired basic auth/app passwords for IMAP on BOTH Microsoft 365 and
+  personal outlook.com (Sept 2024; SMTP enforcement through April 2026), so Outlook
+  is structurally OAuth-only. Sequence: owner does the free Entra ID app
+  registration (docs/2026-07-10-connector-registrations.md item 3, ~15 min; ONE
+  registration also unlocks OneDrive, Word, OneNote) → build the OAuth
+  loopback/PKCE flow with Outlook as its first tenant (council priced this class
+  ~3-6 days for vendor #1). Interim today: drag messages out of Outlook as .eml
+  into a watched folder — full ingest incl. attachments as of v0.5.0.
+- **iManage (owner-requested, legal DMS).** imanage.com — Work API is OAuth2 and
+  developer access typically runs through the iManage partner/developer program;
+  needs a doc-driven research pass (auth model, what a solo/small-firm account can
+  self-serve, document listing + download endpoints) before it can be catalogued
+  honestly. Natural sibling of NetDocuments in the Practice Management group; both
+  are firm-sale enablers (Rosa's seat).
 - The ENGINE-GATED BATCH in one future 63/63 cycle: per-document retrieval scoping
   (the false-"missing" real fix — until then exports carry the scope caveat),
   answering.py Ollama timeouts, M-1 query rewriting, fact-router decision.
