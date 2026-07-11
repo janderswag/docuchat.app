@@ -155,13 +155,20 @@ def review_docx(payload: dict):
                       + (f" - document types: {', '.join(str(t) for t in doc_types)}"
                          if doc_types else ""))
     # THE CAVEAT (Sam): scope honesty + verification honesty, on every export.
-    doc.add_paragraph(
+    caveat = (
         "Each clause was checked against the matter's most relevant passages - "
         "not a page-by-page read. A 'Not located' row means the clause was not "
         "located in those passages, not that it is absent. Every 'Found' quote was "
         "mechanically "
         "verified against the source text; verify context before use. This is not "
         "legal advice and not a complete review.")
+    # D6: when the absence-verification pass ran, the caveat names it - rows
+    # marked 'each document checked individually' carry the stronger claim.
+    if any(r.get("verified_scope") for r in results):
+        caveat += (" Clauses not located matter-wide were additionally "
+                   "re-checked against each document's most relevant passages, "
+                   "one document at a time.")
+    doc.add_paragraph(caveat)
     doc.add_paragraph(
         f"Summary: {summary.get('found', 0)} found - "
         f"{summary.get('potentially_missing', 0)} not located - "

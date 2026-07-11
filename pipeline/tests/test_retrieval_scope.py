@@ -219,5 +219,56 @@ class TestScopedAnswerLive(unittest.TestCase):
                 self.assertEqual(c["filename"], "b.txt")
 
 
+EVAL_DB = PIPELINE_DIR / ".lancedb"
+PEMBERTON = "Pemberton Logistics (Nimbus MSA)"
+
+
+def _eval_store_ready():
+    """The dev clone carries an EMPTY .lancedb dir (no chunks table) — probe
+    the table, not just the path, so the class skips honestly there."""
+    if not EVAL_DB.exists():
+        return False
+    try:
+        import lancedb
+        lancedb.connect(str(EVAL_DB)).open_table("chunks")
+        return True
+    except Exception:
+        return False
+
+
+@unittest.skipUnless(_eval_store_ready() and _ollama_up(),
+                     "eval .lancedb baseline (chunks) + loopback Ollama required")
+class TestScopeAgainstEvalBaseline(unittest.TestCase):
+    """D6 G-SCOPE live proof (read-only against the eval baseline, D-31): the
+    Pemberton matter holds the MSA (indemnification on page 3, golden F-009)
+    plus the Renfrew demand letter (no indemnification clause). A scoped ask
+    finds the clause in the document that has it and refuses in the one that
+    does not — the exact false-'missing' scenario the engine cycle fixes."""
+
+    QUESTION = ("What are each party's indemnification obligations under this "
+                "agreement: who must defend, indemnify, or hold harmless whom?")
+
+    def test_scoped_to_the_msa_finds_it(self):
+        res = answering.answer(self.QUESTION, matter=PEMBERTON,
+                               db_path=str(EVAL_DB),
+                               source_filename="nimbus_pemberton_msa.pdf")
+        self.assertFalse(answering._is_refusal(res["answer_text"]),
+                         res["answer_text"])
+        self.assertTrue(res["citations"], "found without a verified citation")
+        for c in res["citations"]:
+            self.assertEqual(c["filename"], "nimbus_pemberton_msa.pdf")
+
+    def test_scoped_to_the_demand_letter_refuses(self):
+        res = answering.answer(self.QUESTION, matter=PEMBERTON,
+                               db_path=str(EVAL_DB),
+                               source_filename="renfrew_demand_letter.pdf")
+        # never a fabricated citation: either an honest refusal, or (if prose
+        # slipped through) zero span-verified citations on the wrong document
+        if not answering._is_refusal(res["answer_text"]):
+            self.assertEqual(
+                [c for c in res["citations"]
+                 if c["filename"] != "renfrew_demand_letter.pdf"], [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

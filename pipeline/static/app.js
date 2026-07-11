@@ -2722,8 +2722,24 @@
     updateReviewProgress();
   }
 
-  function reviewFootHtml() {
-    return "<p class='muted clause-foot'>" + esc(REVIEW_CAVEAT) + "</p>";
+  // D6: when the absence-verification pass ran (any row carries verified_scope),
+  // the caveat names it — the claim got stronger and the caveat must say so
+  var VERIFY_CAVEAT = "Clauses not located matter-wide were additionally " +
+    "re-checked against each document's most relevant passages, one document " +
+    "at a time.";
+
+  function runHasVerifiedRows(run) {
+    return ((run && run.results) || []).some(function (r) {
+      return r.verified_scope;
+    });
+  }
+
+  function reviewCaveat(run) {
+    return REVIEW_CAVEAT + (runHasVerifiedRows(run) ? " " + VERIFY_CAVEAT : "");
+  }
+
+  function reviewFootHtml(run) {
+    return "<p class='muted clause-foot'>" + esc(reviewCaveat(run)) + "</p>";
   }
 
   function renderFinishedRun(run, opts) {
@@ -2736,7 +2752,7 @@
       (opts.stale ? " <span class='clause-badge stale'>documents changed since this review</span>" : "") +
       "<span class='clause-summary inline'>" + reviewTallyHtml(run.summary || {}) + "</span>";
     reviewStatus(head);
-    out.innerHTML = (run.results || []).map(renderClauseRow).join("") + reviewFootHtml();
+    out.innerHTML = (run.results || []).map(renderClauseRow).join("") + reviewFootHtml(run);
     setReviewExports(run);
   }
 
@@ -2831,7 +2847,7 @@
       "<span class='clause-summary inline'>" + reviewTallyHtml(reviewJob.tally || {}) + "</span>");
     clearPendingRows();
     var out = document.getElementById("clause-results");
-    if (out && reviewJob.filled) out.insertAdjacentHTML("beforeend", reviewFootHtml());
+    if (out && reviewJob.filled) out.insertAdjacentHTML("beforeend", reviewFootHtml(null));
   }
 
   function reviewFailed(data) {
@@ -2883,7 +2899,7 @@
 
   function reviewPlainText(run) {
     var lines = ["Contract Review: " + run.matter,
-                 "Reviewed " + reviewDate(run.reviewed), "", REVIEW_CAVEAT, ""];
+                 "Reviewed " + reviewDate(run.reviewed), "", reviewCaveat(run), ""];
     var s = run.summary || {};
     lines.push("Summary: " + (s.found || 0) + " found, " + (s.potentially_missing || 0) +
       " not located, " + (s.not_confirmed || 0) + " not confirmed (of " +
@@ -2903,7 +2919,7 @@
   function reviewMarkdown(run) {
     var s = run.summary || {};
     var lines = ["# Contract Review: " + run.matter, "",
-                 "Reviewed " + reviewDate(run.reviewed) + ".", "", "> " + REVIEW_CAVEAT, "",
+                 "Reviewed " + reviewDate(run.reviewed) + ".", "", "> " + reviewCaveat(run), "",
                  "**Summary:** " + (s.found || 0) + " found, " + (s.potentially_missing || 0) +
                  " not located, " + (s.not_confirmed || 0) + " not confirmed (of " +
                  (s.total || 0) + " checked)", ""];

@@ -96,12 +96,15 @@ class TestReviewJobSurface(unittest.TestCase):
         for token in ("clause-copy", "clause-md", "clause-word",
                       "/clauses/review.docx", "reviewMarkdown", "reviewPlainText"):
             self.assertIn(token, self.js)
-        # Sam's rider: the scope caveat rides the UI foot and every export builder
+        # Sam's rider: the scope caveat rides the UI foot and every export
+        # builder (via reviewCaveat(run), which appends the D6 absence-
+        # verification sentence when that pass ran)
         self.assertIn("most relevant", self.js)
         self.assertIn("REVIEW_CAVEAT", self.js)
+        self.assertIn("re-checked against each document", self.js)
         for builder in ("reviewPlainText", "reviewMarkdown"):
             i = self.js.index("function " + builder)
-            self.assertIn("REVIEW_CAVEAT", self.js[i:i + 900], builder)
+            self.assertIn("reviewCaveat(run)", self.js[i:i + 900], builder)
         # per-clause verification status on exports
         self.assertIn("Found (span-verified)", self.js)
 
