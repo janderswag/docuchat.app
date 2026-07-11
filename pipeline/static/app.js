@@ -1143,8 +1143,9 @@
   // never model-asserted. Non-PDF docs 404 -> the <img> hides itself (onerror).
   function citationThumb(c) {
     if (c.doc_id == null) return "";
-    var url = "/kb/highlight/" + encodeURIComponent(c.doc_id) +
-      "?page=" + encodeURIComponent(c.page) + "&span=" + encodeURIComponent(c.span || "");
+    var url = ("/kb/highlight/" + encodeURIComponent(c.doc_id) +
+      "?page=" + encodeURIComponent(c.page) + "&span=" + encodeURIComponent(c.span || ""))
+      .replace(/'/g, "%27"); // encodeURIComponent leaves ' raw; it would end the href='...'
     return "<a href='" + url + "' target='_blank' title='Open " + esc(c.filename) +
       " p." + esc(c.page) + " with the cited span highlighted'>" +
       "<img class='thumb' src='" + url + "' alt='cited page' onerror=\"this.style.display='none'\"></a>";
@@ -1171,8 +1172,9 @@
   }
 
   function highlightUrl(c) {
-    return "/kb/highlight/" + encodeURIComponent(c.doc_id) +
-      "?page=" + encodeURIComponent(c.page) + "&span=" + encodeURIComponent(c.span || "");
+    return ("/kb/highlight/" + encodeURIComponent(c.doc_id) +
+      "?page=" + encodeURIComponent(c.page) + "&span=" + encodeURIComponent(c.span || ""))
+      .replace(/'/g, "%27"); // encodeURIComponent leaves ' raw; it would end the href='...'
   }
 
   // Replace the model's verbose inline [document: X, page: N, ...] tags with compact
@@ -1729,8 +1731,10 @@
         var loc = esc(r.source_filename) + " — p." + esc(r.page_number) +
           (r.section ? " · " + esc(r.section) : "");
         var open = r.doc_id != null
-          ? "<a class='src-chip' target='_blank' href='/kb/highlight/" + r.doc_id +
-            "?page=" + r.page_number + "&span=" + encodeURIComponent((r.snippet || "").slice(0, 80)) +
+          ? "<a class='src-chip' target='_blank' href='" +
+            ("/kb/highlight/" + r.doc_id + "?page=" + r.page_number +
+             "&span=" + encodeURIComponent((r.snippet || "").slice(0, 80)))
+              .replace(/'/g, "%27") + // encodeURIComponent leaves ' raw inside href='...'
             "'>" + loc + "</a>"
           : "<span class='src-chip'>" + loc + "</span>";
         return "<div class='panel search-hit'>" + open +
