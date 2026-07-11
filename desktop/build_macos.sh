@@ -73,4 +73,13 @@ else
     echo "==> SKIPPING notarization: NOTARY_PROFILE not set (SIGNING.md step 3)." || true
 fi
 
+if [[ "${SKIP_SMOKE:-0}" == "1" ]]; then
+  echo "==> WARNING: SKIPPING the packaged-app smoke gate (SKIP_SMOKE=1)."
+  echo "==>          This bundle has been BUILT but NOT PROVEN TO WORK. Do not ship it"
+  echo "==>          without running ./desktop/smoke_packaged.sh $APP first."
+else
+  echo "==> Running packaged-app smoke gate (desktop/smoke_packaged.sh) ..."
+  ./desktop/smoke_packaged.sh "$APP"
+fi
+
 echo "==> Done: $DMG"

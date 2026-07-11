@@ -44,6 +44,11 @@ for pkg in (
         pass  # package not importable at spec time — resolve while iterating
 
 hiddenimports += collect_submodules("uvicorn")
+# connectors/__init__.py discovers its 28 adapter modules dynamically at runtime via
+# pkgutil.iter_modules — there is no literal `import connectors.gmail` etc. anywhere for
+# PyInstaller's static analysis to see, so without this the frozen registry is empty and
+# every connector in the UI is inert (connectors-audit.md root cause).
+hiddenimports += collect_submodules("connectors")
 # The app module tree: launcher imports api lazily (frozen in-process path), and api /
 # routes_matters import sample_matter inside functions — static analysis misses those.
 hiddenimports += ["api", "sample_matter"]

@@ -431,6 +431,29 @@ def main(port=DEFAULT_PORT):
     handles = {"proc": None, "ollama": None, "server": None}
     install_cleanup_live(handles)
 
+    # DOCUCHAT_SMOKE=1: packaged-app smoke gate (desktop/smoke_packaged.sh). No display
+    # is available/wanted for an automated check, so skip pywebview entirely and start
+    # the SAME server the real launcher starts (in-process for a frozen build), then
+    # block until the smoke script sends SIGTERM — install_cleanup_live's handler above
+    # already stops the server/Ollama children on that signal. Unset (the default): zero
+    # behavior change to a normal launch.
+    if os.environ.get("DOCUCHAT_SMOKE") == "1":
+        free_port(port)
+        handles["ollama"] = ensure_ollama()
+        if getattr(sys, "frozen", False):
+            handles["server"] = start_server_frozen(port=port)
+        else:
+            handles["proc"] = start_server(port=port)
+        if not wait_healthy(port=port):
+            print(f"smoke: server did not become healthy on http://{HOST}:{port}",
+                  file=sys.stderr)
+            stop_server(handles.get("proc"))
+            stop_server(handles.get("ollama"))
+            return 1
+        print(f"smoke: healthy on http://{HOST}:{port}", flush=True)
+        while True:
+            time.sleep(1)
+
     import webview  # deferred: needs a display; keep the helpers headless-importable
     window = webview.create_window(
         "docuchat", html=SPLASH_HTML,
@@ -474,4 +497,6 @@ def main(port=DEFAULT_PORT):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # DOCUCHAT_PORT: smoke_packaged.sh points a real built .app at a scratch port so it
+    # never collides with the owner's real app on the default 8000.
+    raise SystemExit(main(port=int(os.environ.get("DOCUCHAT_PORT", DEFAULT_PORT))))

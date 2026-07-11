@@ -14,6 +14,7 @@ So frozen builds read assets from the bundle and write all durable data to
 ``~/Library/Application Support/docuchat/``.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -29,7 +30,16 @@ def assets_root():
 
 
 def data_root():
-    """Writable durable data (catalog, KB store, encrypted bundle). Dev: pipeline/."""
+    """Writable durable data (catalog, KB store, encrypted bundle). Dev: pipeline/.
+
+    DOCUCHAT_DATA_DIR overrides both branches (checked first) so the packaged-app smoke
+    gate (desktop/smoke_packaged.sh) can point a real built .app at a scratch directory
+    instead of the owner's live ~/Library/Application Support/docuchat/."""
+    override = os.environ.get("DOCUCHAT_DATA_DIR")
+    if override:
+        p = Path(override)
+        p.mkdir(parents=True, exist_ok=True)
+        return p
     if IS_FROZEN:
         p = Path.home() / "Library" / "Application Support" / "docuchat"
         p.mkdir(parents=True, exist_ok=True)
