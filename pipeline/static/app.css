@@ -15,6 +15,8 @@
   --text:#1d1b16; --muted:#6b6557; --faint:#938c7c;
   --border:#e7e0d3; --border-2:#dcd3c2;
   --ok:#2f7d4c; --warn:#9a6a1e; --err:#b23f29;
+  --ok-soft:#e6f0e2; --warn-soft:#f6ead0; --err-soft:#f6e2dc;
+  --info-soft:#e8ecf3; --info-ink:#5a6b85;
   --serif:"Newsreader",Georgia,"Times New Roman",serif;
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
@@ -43,7 +45,7 @@ body{font-family:var(--sans);color:var(--text);background-color:var(--bg);
   color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand-badge{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;
   font-size:10px;letter-spacing:.4px;text-transform:uppercase;font-weight:600;
-  color:var(--ok);background:#e6f0e2;border:1px solid #b6d7bf;
+  color:var(--ok);background:var(--ok-soft);border:1px solid #b6d7bf;
   padding:2.5px 8px;border-radius:999px;white-space:nowrap}
 .brand-badge::before{content:"";flex:0 0 6px;width:6px;height:6px;border-radius:50%;
   background:#3fae6e;box-shadow:0 0 5px rgba(63,174,110,.7)}
@@ -89,11 +91,11 @@ table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border)}
 th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
 .status{font-size:12px;padding:2px 8px;border-radius:999px;font-weight:600}
-.status.ready{background:#e6f0e2;color:var(--ok)}
-.status.parsing{background:#f6ead0;color:var(--warn)}
-.status.queued{background:#e8ecf3;color:#5a6b85}
-.status.needs_review{background:#f6ead0;color:var(--warn)}
-.status.failed{background:#f6e2dc;color:var(--err)}
+.status.ready{background:var(--ok-soft);color:var(--ok)}
+.status.parsing{background:var(--warn-soft);color:var(--warn)}
+.status.queued{background:var(--info-soft);color:var(--info-ink)}
+.status.needs_review{background:var(--warn-soft);color:var(--warn)}
+.status.failed{background:var(--err-soft);color:var(--err)}
 
 /* Chat */
 .chat-messages{max-width:960px;margin:16px auto 0;display:flex;flex-direction:column;gap:10px}
@@ -169,8 +171,8 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
 .thumb{max-width:260px;border:1px solid var(--border);border-radius:8px;margin-top:6px;cursor:pointer;display:block}
 .thumb-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
 .privacy-badge{font-weight:600;padding:8px 14px;border-radius:999px;font-size:14px}
-.privacy-badge.ok{background:#e6f0e2;color:var(--ok);border:1px solid #b6d7bf}
-.privacy-badge.warn{background:#f6e2dc;color:var(--err);border:1px solid #e7b6ab}
+.privacy-badge.ok{background:var(--ok-soft);color:var(--ok);border:1px solid #b6d7bf}
+.privacy-badge.warn{background:var(--err-soft);color:var(--err);border:1px solid #e7b6ab}
 
 /* Contract Review (clause checklist) */
 .clause-summary{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
@@ -183,8 +185,8 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
 .clause-name{font-weight:600;font-size:15px}
 .clause-cat{color:var(--muted);font-size:12px;margin-left:6px}
 .clause-badge{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
-.clause-badge.found{background:#e6f0e2;color:var(--ok)}
-.clause-badge.missing{background:#f6ead0;color:var(--warn)}
+.clause-badge.found{background:var(--ok-soft);color:var(--ok)}
+.clause-badge.missing{background:var(--warn-soft);color:var(--warn)}
 .clause-badge.unconfirmed{background:var(--panel-2);color:var(--muted)}
 .clause-advisory{font-size:13px;margin:4px 0 0}
 .clause-foot{margin-top:16px;font-size:12px}
@@ -211,6 +213,10 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
 .every-mention-link{display:inline-block;font-size:12.5px;margin-top:6px;color:var(--accent);
   text-decoration:none;border-bottom:1px dotted var(--accent)}
 .every-mention-link:hover{color:var(--accent-2)}
+
+/* Move 6 (Jonas #4/#5): shared tokens over one-off styles */
+.drop-hot{background:var(--accent-soft) !important}
+.field-err{color:var(--err);font-size:13px}
 
 /* F3 provenance: imported documents wear their origin (service + date) */
 .src-badge{display:inline-block;font-size:11px;font-weight:600;color:var(--accent);
@@ -275,8 +281,8 @@ th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;le
   cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
 .memory-note .note-x:hover{color:var(--err)}
 .folder-status{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
-.folder-status.ok{background:#e6f0e2;color:var(--ok)}
-.folder-status.missing{background:#f6e2dc;color:var(--err)}
+.folder-status.ok{background:var(--ok-soft);color:var(--ok)}
+.folder-status.missing{background:var(--err-soft);color:var(--err)}
 
 /* Document Hub filing cabinet (UX-7) */
 .matter-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:12px}
@@ -295,7 +301,7 @@ tr.doc-row:active{cursor:grabbing}
 .plan-card{display:flex;align-items:flex-start;gap:14px}
 .plan-name{font-family:var(--serif);font-size:28px;font-weight:500;letter-spacing:-.3px}
 .plan-badge{display:inline-block;vertical-align:6px;margin-left:8px;font-size:11px;font-weight:700;
-  letter-spacing:.4px;text-transform:uppercase;color:var(--ok);background:#e6f0e2;
+  letter-spacing:.4px;text-transform:uppercase;color:var(--ok);background:var(--ok-soft);
   border:1px solid #b6d7bf;padding:3px 10px;border-radius:999px}
 
 /* Integration catalog (UX-11): Granola-style connector rows */
@@ -316,7 +322,7 @@ tr.doc-row:active{cursor:grabbing}
   color:var(--faint);background:transparent;border:1px dashed var(--border-2);
   border-radius:999px;padding:3px 9px}
 .conn-status.first{color:#6e5220;background:var(--accent-soft);border:1px solid var(--accent)}
-.conn-status.live{color:var(--ok);background:#e6f0e2;border:1px solid #b6d7bf}
+.conn-status.live{color:var(--ok);background:var(--ok-soft);border:1px solid #b6d7bf}
 .conn-connect{flex:0 0 auto;padding:6px 14px;font-size:12.5px}
 /* v0.3.0 (D-81): inline Connect drawer under a live catalog row */
 .conn-drawer{border-top:1px dashed var(--border);background:var(--panel-2);
@@ -356,9 +362,9 @@ tr.doc-row:active{cursor:grabbing}
 
 /* non-gating confidence pill (display only) */
 .conf-pill{display:inline-block;margin-top:6px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
-.conf-pill.ok{background:#e6f0e2;color:var(--ok)}
-.conf-pill.warn{background:#f6ead0;color:var(--warn)}
-.conf-pill.low{background:#f6e2dc;color:var(--err)}
+.conf-pill.ok{background:var(--ok-soft);color:var(--ok)}
+.conf-pill.warn{background:var(--warn-soft);color:var(--warn)}
+.conf-pill.low{background:var(--err-soft);color:var(--err)}
 
 /* M-2 matter overview */
 #matter-overview .ov-title{font-weight:600;font-size:11px;text-transform:uppercase;

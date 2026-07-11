@@ -429,7 +429,7 @@
       "<label class='muted' style='display:block;font-size:13px;margin:6px 0 0'>" +
       "<input type='checkbox' id='hub-upload-transcript'> These are deposition/hearing transcripts " +
       "(numbered lines — answers get page:line citations)</label>" +
-      "<div id='hub-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='hub-err' class='field-err'></div>" +
       "<div id='hub-ingest-status' class='muted' style='font-size:13px'></div>" +
       "</div>" +
       "<div class='panel'><b>Every mention</b>" +
@@ -444,7 +444,7 @@
       "<option value='mentions'>Every mention — exact text, counted</option>" +
       "<option value='fts'>Best match — ranked, wording unknown</option></select>" +
       "<button class='btn' id='search-go'>Find</button></div>" +
-      "<div id='search-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='search-err' class='field-err'></div>" +
       "<div id='search-results'></div></div>" +
       "<div class='panel'><b>Unfiled</b> <span class='muted' style='font-size:13px'>— drag a document " +
       "onto a matter below to file it</span>" +
@@ -454,7 +454,7 @@
       "<div style='display:flex;gap:8px;margin:10px 0 4px;max-width:480px'>" +
       "<input id='new-matter-name' type='text' placeholder='New matter name (e.g. Pemberton Logistics)'>" +
       "<button class='btn' id='new-matter-btn'>Create</button></div>" +
-      "<div id='new-matter-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='new-matter-err' class='field-err'></div>" +
       "<div id='matter-cards' class='matter-cards'></div></div>" +
       "</div>" +
       "<div id='matter-detail' style='display:none'></div>";
@@ -470,11 +470,11 @@
     });
     dz.addEventListener("dragover", function (e) {
       // a file drag from the OS, not a row drag
-      if (e.dataTransfer.types.indexOf("Files") !== -1) { e.preventDefault(); dz.style.background = "#eef3ff"; }
+      if (e.dataTransfer.types.indexOf("Files") !== -1) { e.preventDefault(); dz.classList.add("drop-hot"); }
     });
-    dz.addEventListener("dragleave", function () { dz.style.background = ""; });
+    dz.addEventListener("dragleave", function () { dz.classList.remove("drop-hot"); });
     dz.addEventListener("drop", async function (e) {
-      e.preventDefault(); dz.style.background = "";
+      e.preventDefault(); dz.classList.remove("drop-hot");
       var files = await filesFromDataTransfer(e.dataTransfer);   // folders traversed
       if (files.length) uploadToDest(files);
     });
@@ -800,7 +800,7 @@
         "(numbered lines — answers get page:line citations)</label>" +
         "<p class='muted' style='font-size:13px;margin:2px 0 8px'>Files arrive in a folder? " +
         "<a href='#' id='matter-watch-folder'>Watch a folder for this matter</a></p>" +
-        "<div id='matter-upload-err' style='color:var(--err);font-size:13px'></div>" +
+        "<div id='matter-upload-err' class='field-err'></div>" +
         "<div id='matter-ingest-status' class='muted' style='font-size:13px'></div>" +
         "<div class='panel'><table><thead><tr><th>Document</th><th>Size</th>" +
         "<th>Status</th><th>Updated</th><th></th></tr></thead><tbody id='matter-doc-rows'></tbody></table></div>" +
@@ -863,10 +863,10 @@
       var fi = document.getElementById("matter-file-input");
       dz.addEventListener("click", function () { fi.click(); });
       fi.addEventListener("change", function () { uploadFiles(fi.files); });
-      dz.addEventListener("dragover", function (e) { e.preventDefault(); dz.style.background = "#eef3ff"; });
-      dz.addEventListener("dragleave", function () { dz.style.background = ""; });
+      dz.addEventListener("dragover", function (e) { e.preventDefault(); dz.classList.add("drop-hot"); });
+      dz.addEventListener("dragleave", function () { dz.classList.remove("drop-hot"); });
       dz.addEventListener("drop", function (e) {
-        e.preventDefault(); dz.style.background = "";
+        e.preventDefault(); dz.classList.remove("drop-hot");
         uploadFiles(e.dataTransfer.files);
       });
     }
@@ -2147,7 +2147,7 @@
       "Test &amp; connect</button>" +
       "<span class='muted' id='conn-busy' style='font-size:12.5px;display:none'>" +
       "testing the key…</span></div>" +
-      "<div id='conn-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='conn-err' class='field-err'></div>" +
       "<p class='muted' style='font-size:12px'>The key is tested first, then stored " +
       "encrypted on this Mac (never in a file, never sent anywhere but " +
       esc(svc.name) + "). Disconnect deletes it.</p></div></div></div>";
@@ -2278,7 +2278,7 @@
       "<span id='folder-picked' class='muted' style='font-size:13px;word-break:break-all'></span>" +
       "<input type='text' id='folder-path' placeholder='/Users/you/Scans or a synced folder' style='flex:1;min-width:220px'>" +
       "<button class='btn' id='folder-add'>Watch folder</button></div>" +
-      "<div id='folder-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='folder-err' class='field-err'></div>" +
       (rows ? "<table style='margin-top:8px'><thead><tr><th>Folder</th><th>Matter</th><th>Status</th><th></th></tr></thead><tbody id='folder-rows'>" +
               rows + "</tbody></table>"
             : "<p class='muted' style='font-size:13px'>No watched folders yet.</p>") +
@@ -3158,7 +3158,7 @@
       "<span id='clause-custom-chips'></span>" +
       "</div></div>" +
       "<div id='clause-status'></div>" +
-      "<div id='clause-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='clause-err' class='field-err'></div>" +
       "<div id='clause-results'></div>" +
       "<div id='clause-export' class='clause-controls' style='display:none'>" +
       "<button class='btn secondary' id='clause-copy'>Copy</button>" +
@@ -3175,7 +3175,7 @@
       "<button class='btn secondary' id='grid-csv' disabled>Export CSV</button></div>" +
       "<div id='grid-docs' class='doc-picker'></div>" +
       "</div>" +
-      "<div id='grid-err' style='color:var(--err);font-size:13px'></div>" +
+      "<div id='grid-err' class='field-err'></div>" +
       "<div id='grid-results'></div>" +
       "</div>";
     inner.querySelectorAll(".tab").forEach(function (b) {
