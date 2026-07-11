@@ -74,11 +74,15 @@ class TestWatchedFolders(unittest.TestCase):
         self._enq, ingest_worker.enqueue = ingest_worker.enqueue, \
             lambda *a, **k: self.enqueued.append(a) or 1
         self.enqueued = []
+        watchers._seen_mtimes.clear()
+        watchers._stats.clear()
 
     def tearDown(self):
         catalog.DEFAULT_DB = self._cat
         routes_kb.KB_DOCS = self._docs
         ingest_worker.enqueue = self._enq
+        watchers._seen_mtimes.clear()
+        watchers._stats.clear()
 
     def test_validate_rejects_relative_missing_and_kb_tree(self):
         with self.assertRaises(ValueError):
@@ -112,6 +116,62 @@ class TestWatchedFolders(unittest.TestCase):
         self.assertEqual((folder / "letter.txt").read_text(), "SYNTHETIC letter body")
         # second pass: nothing new
         self.assertEqual(watchers.scan_once(), [])
+
+    def test_rescan_of_changed_file_lands_touched_identical_does_not(self):
+        # Council 2026-07-11 Move 4, Elena's filing hazard: a CORRECTED re-scan
+        # of contract.txt (same name, newer mtime, new bytes) must be ingested;
+        # a merely-touched identical file must not mint a duplicate row.
+        # _STABLE_SECONDS is zeroed so "newer than the doc row" mtimes (which
+        # are necessarily near-now) are not mistaken for still-being-written.
+        import os
+        from unittest import mock
+        folder = self.tmp / "scans"
+        folder.mkdir()
+        f = folder / "contract.txt"
+        f.write_text("SYNTHETIC v1 scan")
+        os.utime(f, (time.time() - 60, time.time() - 60))
+        catalog.add_watch_folder("watch-matter", folder)
+        with mock.patch.object(watchers, "_STABLE_SECONDS", 0):
+            self.assertEqual(len(watchers.scan_once()), 1)
+            time.sleep(1.1)   # the doc row's updated stamp has 1s precision
+
+            # touched but identical -> read again, dropped by checksum identity
+            os.utime(f, None)
+            self.assertEqual(watchers.scan_once(), [])
+            self.assertEqual(len(catalog.list_documents("watch-matter")), 1)
+
+            # corrected content, newer mtime -> re-ingested (suffixed name)
+            f.write_text("SYNTHETIC v2 corrected scan")
+            queued = watchers.scan_once()
+        self.assertEqual(len(queued), 1, "corrected re-scan was silently dropped")
+        names = sorted(d["filename"] for d in
+                       catalog.list_documents("watch-matter"))
+        self.assertEqual(names, ["contract-1.txt", "contract.txt"])
+
+    def test_heartbeat_stats_and_status_fields(self):
+        folder = self.tmp / "beat"
+        folder.mkdir()
+        row = catalog.add_watch_folder("watch-matter", folder)
+        listed = client.get("/connectors/folders").json()["folders"]
+        me = [f for f in listed if f["id"] == row["id"]][0]
+        self.assertIsNone(me["checked_s_ago"])          # honest before first scan
+        self.assertTrue(me["matter_exists"])
+
+        watchers.scan_once()
+        me = [f for f in client.get("/connectors/folders").json()["folders"]
+              if f["id"] == row["id"]][0]
+        self.assertIsNotNone(me["checked_s_ago"])
+        self.assertLessEqual(me["checked_s_ago"], 5)
+        self.assertEqual(me["files_added"], 0)
+
+    def test_unfiled_is_a_legal_lazily_created_target(self):
+        folder = self.tmp / "tray"
+        folder.mkdir()
+        self.assertIsNone(catalog.get_matter("unfiled"))
+        r = client.post("/connectors/folders",
+                        json={"matter": "unfiled", "path": str(folder)})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIsNotNone(catalog.get_matter("unfiled"))
 
     def test_routes_add_list_remove(self):
         folder = self.tmp / "drops"

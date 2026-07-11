@@ -535,10 +535,41 @@ def main(port=DEFAULT_PORT):
             time.sleep(1)
 
     import webview  # deferred: needs a display; keep the helpers headless-importable
+
+    class JsBridge:
+        """Native helpers exposed to the UI as window.pywebview.api (council
+        2026-07-11 Move 4). DIALOGS ONLY — no file access of any kind lives
+        here; choose_folder returns the path the user picked (or None), and
+        the server-side validate_folder still gates it. NOTE for the release
+        gate: the headless smoke never creates a window, so bridge presence is
+        a MANUAL gate item (click 'Choose a folder' once in the built app)."""
+
+        def __init__(self):
+            # UNDERSCORE-PRIVATE, load-bearing: pywebview's get_functions walks
+            # every PUBLIC attribute recursively - a public window attribute
+            # would re-expose the whole Window API (load_url to a remote
+            # origin, SAVE dialogs, destroy) to page JS. Keep it private.
+            self._window = None
+
+        def choose_folder(self):
+            if self._window is None:
+                return None
+            try:
+                picked = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+            except Exception as e:
+                print(f"folder dialog failed: {e}", file=sys.stderr)
+                return None
+            if not picked:
+                return None
+            return picked[0] if isinstance(picked, (list, tuple)) else str(picked)
+
+    bridge = JsBridge()
     window = webview.create_window(
         "docuchat", html=SPLASH_HTML,
         width=1200, height=820, min_size=(900, 640),
+        js_api=bridge,
     )
+    bridge._window = window
     # Guarded by construction, not just by condition: DOCUCHAT_SMOKE=1 always returns
     # above before a window (or this thread) ever exists, so the restart-marker flow
     # can never fire during a smoke run.

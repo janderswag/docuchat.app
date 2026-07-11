@@ -795,6 +795,8 @@
         "<label class='muted' style='display:block;font-size:13px;margin:2px 0 8px'>" +
         "<input type='checkbox' id='upload-transcript'> These are deposition/hearing transcripts " +
         "(numbered lines — answers get page:line citations)</label>" +
+        "<p class='muted' style='font-size:13px;margin:2px 0 8px'>Files arrive in a folder? " +
+        "<a href='#' id='matter-watch-folder'>Watch a folder for this matter</a></p>" +
         "<div id='matter-upload-err' style='color:var(--err);font-size:13px'></div>" +
         "<div id='matter-ingest-status' class='muted' style='font-size:13px'></div>" +
         "<div class='panel'><table><thead><tr><th>Document</th><th>Size</th>" +
@@ -804,6 +806,16 @@
 
       document.getElementById("matter-back").addEventListener("click", function (e) {
         e.preventDefault(); closeMatter();
+      });
+      document.getElementById("matter-watch-folder").addEventListener("click", function (e) {
+        // Entry point where the matter is already known (council Move 4):
+        // jump to Settings > Connectors with this matter preselected.
+        e.preventDefault();
+        openSettingsTab("connectors");
+        setTimeout(function () {
+          var sel = document.getElementById("folder-matter");
+          if (sel) sel.value = slug;
+        }, 300);   // the pane renders async; best-effort preselect
       });
       detail.querySelectorAll("[data-tool]").forEach(function (b) {
         b.addEventListener("click", function () {
@@ -2142,6 +2154,59 @@
     }).join("");
   }
 
+  function folderRowsHtml(data) {
+    return (data.folders || []).map(function (f) {
+      // The heartbeat: a row must read as ALIVE or say why it is not.
+      var status;
+      if (!f.exists) status = "<span class='folder-status missing'>folder missing</span>";
+      else if (f.matter_exists === false) status = "<span class='folder-status missing'>matter removed</span>";
+      else if (f.checked_s_ago == null) status = "<span class='folder-status ok'>watching · first check within " + (data.poll_seconds || 15) + "s</span>";
+      else status = "<span class='folder-status ok'>watching · checked " + f.checked_s_ago + "s ago · " +
+        f.files_added + " file" + (f.files_added === 1 ? "" : "s") + " added</span>";
+      return "<tr><td style='word-break:break-all'>" + esc(f.path) + "</td><td class='muted'>" +
+        esc(f.matter_slug) + "</td><td>" + status + "</td>" +
+        "<td><button class='btn secondary' data-rm-folder='" + f.id + "'>remove</button></td></tr>";
+    }).join("");
+  }
+
+  // Heartbeat refresh: only the folder table rows update (never the whole pane,
+  // which would clear an in-progress connect form). Stops itself when the
+  // connectors pane is no longer visible.
+  var folderTimer = null;
+  function wireFolderRemoveButtons(scope) {
+    scope.querySelectorAll("[data-rm-folder]").forEach(function (b) {
+      b.addEventListener("click", async function () {
+        await api("/connectors/folders/remove", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: parseInt(b.dataset.rmFolder, 10) }),
+        });
+        renderConnectorsPane();
+      });
+    });
+  }
+
+  function startFolderHeartbeat() {
+    if (folderTimer) clearInterval(folderTimer);
+    folderTimer = setInterval(async function () {
+      var view = document.getElementById("view-settings");
+      var tbody = document.getElementById("folder-rows");
+      if (!view || !view.classList.contains("active") || !tbody) {
+        clearInterval(folderTimer);
+        folderTimer = null;
+        return;
+      }
+      try {
+        var data = await api("/connectors/folders");
+        if ((data.folders || []).length !== tbody.children.length) {
+          renderConnectorsPane();     // count changed elsewhere -> full render
+          return;
+        }
+        tbody.innerHTML = folderRowsHtml(data);
+        wireFolderRemoveButtons(tbody);
+      } catch (e) { /* next tick retries */ }
+    }, 10000);
+  }
+
   async function renderConnectorsPane() {
     var pane = document.getElementById("spane-connectors");
     if (!pane) return;
@@ -2153,12 +2218,7 @@
       (svc.services || []).forEach(function (s) { connState.services[s.slug] = s; });
       connState.connections = (await api("/connections")).connections || [];
     } catch (e) { /* pane still renders; live rows show Unavailable */ }
-    var rows = (data.folders || []).map(function (f) {
-      return "<tr><td style='word-break:break-all'>" + esc(f.path) + "</td><td class='muted'>" +
-        esc(f.matter_slug) + "</td><td><span class='folder-status " +
-        (f.exists ? "ok'>watching" : "missing'>missing") + "</span></td>" +
-        "<td><button class='btn secondary' data-rm-folder='" + f.id + "'>remove</button></td></tr>";
-    }).join("");
+    var rows = folderRowsHtml(data);
     pane.innerHTML =
       "<div class='panel'>" +
       "<b>Watched folders</b>" +
@@ -2166,13 +2226,17 @@
       "your disk can flow in automatically. New files dropped into a watched folder are added to " +
       "its matter (checked every " + (data.poll_seconds || 15) + " seconds; originals are never " +
       "moved or changed). Point one at a scanner's output folder, or at a Dropbox / Google Drive / " +
-      "OneDrive synced folder: the sync app moves the bytes, docuchat never touches the network.</p>" +
-      "<div style='display:flex;gap:8px;align-items:center;margin:12px 0'>" +
+      "OneDrive synced folder: the sync app moves the bytes, docuchat never touches the network. " +
+      "Only the folder itself is watched - files in subfolders are not imported. " +
+      "Tip: for a shared scanner tray, watch it into Unfiled and file each scan yourself.</p>" +
+      "<div style='display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap'>" +
       "<select class='matter-picker' id='folder-matter' style='max-width:240px'></select>" +
-      "<input type='text' id='folder-path' placeholder='/Users/you/Scans or a synced folder' style='flex:1'>" +
+      "<button class='btn secondary' id='folder-choose' style='display:none'>Choose a folder…</button>" +
+      "<span id='folder-picked' class='muted' style='font-size:13px;word-break:break-all'></span>" +
+      "<input type='text' id='folder-path' placeholder='/Users/you/Scans or a synced folder' style='flex:1;min-width:220px'>" +
       "<button class='btn' id='folder-add'>Watch folder</button></div>" +
       "<div id='folder-err' style='color:var(--err);font-size:13px'></div>" +
-      (rows ? "<table style='margin-top:8px'><thead><tr><th>Folder</th><th>Matter</th><th>Status</th><th></th></tr></thead><tbody>" +
+      (rows ? "<table style='margin-top:8px'><thead><tr><th>Folder</th><th>Matter</th><th>Status</th><th></th></tr></thead><tbody id='folder-rows'>" +
               rows + "</tbody></table>"
             : "<p class='muted' style='font-size:13px'>No watched folders yet.</p>") +
       "</div>" +
@@ -2197,12 +2261,47 @@
       connectorCatalogHtml();
     fillMatterPickers().catch(function () {});
     wireConnectionEvents(pane);
+    // Native folder picker when the desktop bridge is present (packaged app);
+    // the text input survives as the dev/browser fallback. The old single
+    // conflated guard blamed the matter even when it was already chosen — the
+    // guards are now split and each one focuses the control it is blaming.
+    var chooseBtn = document.getElementById("folder-choose");
+    var pathInput = document.getElementById("folder-path");
+    var hasBridge = !!(window.pywebview && window.pywebview.api &&
+                       window.pywebview.api.choose_folder);
+    if (hasBridge) {
+      chooseBtn.style.display = "";
+      pathInput.style.display = "none";
+      chooseBtn.addEventListener("click", async function () {
+        var err = document.getElementById("folder-err");
+        err.textContent = "";
+        try {
+          var picked = await window.pywebview.api.choose_folder();
+          if (picked) {
+            pathInput.value = picked;
+            document.getElementById("folder-picked").textContent = picked;
+          }
+        } catch (e) { err.textContent = "The folder dialog could not open - type the path instead."; pathInput.style.display = ""; }
+      });
+    }
     document.getElementById("folder-add").addEventListener("click", async function () {
       var err = document.getElementById("folder-err");
       err.textContent = "";
-      var matter = document.getElementById("folder-matter").value;
-      var path = document.getElementById("folder-path").value.trim();
-      if (!matter || !path) { err.textContent = "Choose a matter and enter a folder path."; return; }
+      var matterSel = document.getElementById("folder-matter");
+      var matter = matterSel.value;
+      var path = pathInput.value.trim();
+      if (!matter) {
+        err.textContent = "Choose which matter this folder feeds (Unfiled works too).";
+        matterSel.focus();
+        return;
+      }
+      if (!path) {
+        err.textContent = hasBridge
+          ? "Click 'Choose a folder…' to pick the folder to watch."
+          : "Enter the full path of the folder to watch.";
+        (hasBridge ? chooseBtn : pathInput).focus();
+        return;
+      }
       try {
         await api("/connectors/folders", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -2211,15 +2310,8 @@
         renderConnectorsPane();
       } catch (e) { err.textContent = e.message; }
     });
-    pane.querySelectorAll("[data-rm-folder]").forEach(function (b) {
-      b.addEventListener("click", async function () {
-        await api("/connectors/folders/remove", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: parseInt(b.dataset.rmFolder, 10) }),
-        });
-        renderConnectorsPane();
-      });
-    });
+    wireFolderRemoveButtons(pane);
+    startFolderHeartbeat();
   }
 
   function wireConnectionEvents(pane) {

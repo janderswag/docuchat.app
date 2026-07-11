@@ -27,14 +27,33 @@ class RemoveFolder(BaseModel):
 
 @router.get("/connectors/folders")
 def list_folders():
+    """Folders with LIVE status: exists on disk, matter still real, and the
+    heartbeat (last scan + files added since app start) — the row must read as
+    alive or say why it is not (council 2026-07-11 Move 4)."""
+    import time as _time
     out = []
     for wf in catalog.list_watch_folders():
-        out.append({**wf, "exists": Path(wf["path"]).is_dir()})
+        stats = watchers.folder_stats(wf["id"]) or {}
+        last = stats.get("last_scan")
+        out.append({**wf,
+                    "exists": Path(wf["path"]).is_dir(),
+                    "matter_exists": bool(catalog.get_matter(wf["matter_slug"])),
+                    "checked_s_ago": (round(_time.time() - last)
+                                      if last else None),
+                    "files_added": stats.get("files_added", 0)})
     return {"folders": out, "poll_seconds": watchers.POLL_SECONDS}
 
 
 @router.post("/connectors/folders")
 def add_folder(body: NewFolder):
+    # Unfiled is a legal target (same lazy-create convention as connector
+    # imports): a shared scanner tray should feed the confirm-then-file tray,
+    # not a matter (Sam's contamination note).
+    if body.matter == "unfiled" and not catalog.get_matter("unfiled"):
+        try:
+            catalog.create_matter("Unfiled")
+        except ValueError:
+            pass    # concurrent lazy-create raced us; the matter now exists
     if not catalog.get_matter(body.matter):
         raise HTTPException(status_code=400, detail=f"unknown matter: {body.matter!r}")
     try:

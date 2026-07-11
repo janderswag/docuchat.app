@@ -18,6 +18,7 @@ the rest. The source file in the watched folder is NEVER modified or deleted
 """
 
 import hashlib
+import sys
 import threading
 import time
 from pathlib import Path
@@ -31,6 +32,34 @@ _STABLE_SECONDS = 2     # a file must be this old (mtime) before pickup
 
 _started = False
 _start_lock = threading.Lock()
+
+# Heartbeat (council 2026-07-11 Move 4): per-folder liveness the UI can render as
+# "Watching · checked 12s ago · 3 files added". In-memory by design — after a
+# restart "not checked yet" is the honest answer.
+_stats = {}             # folder id -> {"last_scan": epoch, "files_added": int}
+_stats_lock = threading.Lock()
+
+# Re-scan bookkeeping: (folder id, filename) -> the file's mtime at our last
+# READ of it. Comparing against this (never against the document row's
+# `updated`, which is bumped by processing-status transitions and can postdate
+# a correction saved during a long OCR) means a corrected re-scan always lands,
+# and a file is read+hashed at most once per change — not once per poll.
+# In-memory: after a restart every file is re-read ONCE, checksum identity
+# drops the known ones, and the map is warm again.
+_seen_mtimes = {}
+
+
+def folder_stats(folder_id):
+    with _stats_lock:
+        s = _stats.get(folder_id)
+        return dict(s) if s else None
+
+
+def _bump_stats(folder_id, added):
+    with _stats_lock:
+        s = _stats.setdefault(folder_id, {"files_added": 0})
+        s["last_scan"] = time.time()
+        s["files_added"] += added
 
 
 def _allowed_suffixes():
@@ -60,11 +89,16 @@ def validate_folder(path):
 
 
 def _ingest_file(matter, src):
-    """Copy one new file into the matter through the manual-upload path."""
+    """Copy one new file into the matter through the manual-upload path. Returns
+    the new document row, or None when the matter already holds this exact
+    content (checksum identity — never a second catalog row over one file)."""
     import routes_kb
     body = src.read_bytes()
     if not body:
         return None
+    checksum = hashlib.sha256(body).hexdigest()
+    if catalog.find_document_by_checksum(matter, checksum):
+        return None    # content already in the matter (e.g. touched mtime only)
     dest_dir = routes_kb.KB_DOCS / matter
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / src.name
@@ -74,7 +108,7 @@ def _ingest_file(matter, src):
         i += 1
     keyvault.write_matter_file(dest, body, matter)
     doc = catalog.add_document(matter, dest, filename=dest.name, status="queued",
-                               checksum=hashlib.sha256(body).hexdigest(),
+                               checksum=checksum,
                                size_bytes=len(body))
     ingest_worker.enqueue(doc["id"], str(dest), matter,
                           str(routes_kb.KB_DB), catalog.DEFAULT_DB)
@@ -83,34 +117,54 @@ def _ingest_file(matter, src):
 
 def scan_once(db_path=None):
     """One pass over all watched folders. Returns the list of newly-queued docs.
-    A missing/renamed folder is skipped silently (the UI shows its status)."""
+    A missing folder or disposed matter is skipped (the UI shows its status).
+
+    Re-scan integrity (council 2026-07-11 Move 4, Elena's filing hazard): a file
+    whose name already exists in the matter is NOT skipped forever — whenever
+    its mtime advances past our last read (_seen_mtimes), it is re-read, and
+    ingested when the content actually changed (a corrected re-scan of
+    contract.pdf must land; a merely-touched identical file is dropped by
+    checksum identity in _ingest_file, and is not read again until it changes
+    again). Only the folder itself is scanned — subfolders are not watched,
+    and the UI says so."""
     allowed = _allowed_suffixes()
     queued = []
     for wf in catalog.list_watch_folders(db_path=db_path):
         folder = Path(wf["path"])
         if not folder.is_dir():
+            _bump_stats(wf["id"], 0)
             continue
         if not catalog.get_matter(wf["matter_slug"], db_path=db_path):
+            _bump_stats(wf["id"], 0)
             continue    # matter was disposed; folder row is inert
-        existing = {d["filename"] for d in
-                    catalog.list_documents(wf["matter_slug"], db_path=db_path)}
         try:
             entries = sorted(folder.iterdir())
-        except OSError:
+        except OSError as e:
+            print(f"[watchers] cannot read {folder}: {e}", file=sys.stderr)
+            _bump_stats(wf["id"], 0)
             continue
+        added = 0
         for f in entries:
             if not f.is_file() or f.suffix.lower() not in allowed:
                 continue
-            if f.name in existing or f.name.startswith("."):
+            if f.name.startswith("."):
                 continue
+            key = (wf["id"], f.name)
             try:
-                if time.time() - f.stat().st_mtime < _STABLE_SECONDS:
+                mtime = f.stat().st_mtime
+                if time.time() - mtime < _STABLE_SECONDS:
                     continue    # possibly still being written; next pass gets it
+                if _seen_mtimes.get(key, -1.0) >= mtime:
+                    continue    # unchanged since our last read of this file
                 doc = _ingest_file(wf["matter_slug"], f)
-            except OSError:
+                _seen_mtimes[key] = mtime
+            except OSError as e:
+                print(f"[watchers] cannot ingest {f.name}: {e}", file=sys.stderr)
                 continue
             if doc:
                 queued.append(doc)
+                added += 1
+        _bump_stats(wf["id"], added)
     return queued
 
 
@@ -118,8 +172,11 @@ def _loop():
     while True:
         try:
             scan_once()
-        except Exception:
-            pass    # a bad pass never kills the watcher; next tick retries
+        except Exception as e:
+            # a bad pass never kills the watcher; next tick retries — but it is
+            # LOGGED, never swallowed (council 2026-07-11 Move 4 honesty rider)
+            print(f"[watchers] scan pass failed: {type(e).__name__}: {e}",
+                  file=sys.stderr)
         try:
             # v0.3.0 (D-81): sync-enabled connector connections ride the same tick;
             # sync_due() rate-limits itself per connection and spawns its own thread.
