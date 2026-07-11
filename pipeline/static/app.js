@@ -1550,6 +1550,10 @@
   function renderSlashPalette() {
     var pal = document.getElementById("slash-palette");
     if (!pal) return;
+    // Below the input by default (owner design call); flip above only when the
+    // composer is close enough to the bottom of the window that the menu would clip.
+    var comp = pal.parentElement, rect = comp ? comp.getBoundingClientRect() : null;
+    pal.classList.toggle("above", !!rect && (window.innerHeight - rect.bottom) < 300);
     pal.innerHTML = slashState.items.map(function (c, i) {
       return "<div class='slash-row" + (i === slashState.index ? " selected" : "") +
         "' data-idx='" + i + "'><span class='slash-cmd'>/" + esc(c.cmd) + "</span>" +
@@ -1641,10 +1645,10 @@
       "<div class='chat-greeting'><h1 id='chat-greet-title'>What would you like to ask?</h1>" +
       "<p class='greet-sub'>Answers are grounded in the selected matter&#39;s documents and cited to the exact page and span.</p></div>" +
       "<div id='chat-guide'></div>" +
-      "<div id='slash-palette' class='slash-palette' style='display:none'></div>" +
       "<div class='chat-composer'>" +
       "<textarea id='chat-input' rows='1' placeholder='Ask anything about this matter&#39;s documents… (try /)'></textarea>" +
       "<button class='btn' id='chat-send'>Ask&nbsp;→</button>" +
+      "<div id='slash-palette' class='slash-palette' style='display:none'></div>" +
       "</div></div>";
     document.getElementById("chat-matter").addEventListener("change", function (e) {
       var opt = e.target.selectedOptions[0];
