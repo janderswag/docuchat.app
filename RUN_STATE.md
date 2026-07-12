@@ -3,9 +3,71 @@
 > Single source of truth for "where are we right now." Update this after every working session.
 > Read at the start of each session alongside `CLAUDE.md`.
 
-_Last updated: 2026-07-11 (v0.5.0 build session)_
+_Last updated: 2026-07-12 (adoption-tips sprint: v0.5.1 + v0.6.0 staged)_
 
 ## Status
+
+**2026-07-12 (overnight autonomous sprint) — v0.5.1 + v0.6.0 BUILT AND STAGED AS
+DRAFTS (owner publishes): the adoption-tips plan
+(docs/superpowers/plans/2026-07-12-adoption-tips.md) executed end to end, all 10
+tasks, from the 2026-07-11 adoption-verdict council's three tips-my-yes items.**
+
+**v0.5.1 (engine frozen — zero diffs in answering/retrieval/verifier, verified):**
+**A1** label demotion: "Potentially missing" is gone everywhere ("Not located in the
+passages checked" display, "(passages checked, not a page-by-page read)" exports,
+badge demoted warn-amber -> muted, docx caveat reworded, MISSING_ADVISORY fixed,
+grid chip no longer says "missing"). **C1** 16GB RAM gate: refuse-with-explanation
+before any engine start (sysctl, fails OPEN, DOCUCHAT_SKIP_RAM_GATE=1 escape hatch
+with `open -n`, smoke path never gated, wiring test proves main() integration);
+site names the requirement. **B1** tesseract vendored (dylibbundler relocatable
+@executable_path, atomic staging, otool relocation assert; CRITICAL catch: datas
+land in Contents/Resources OUTSIDE codesign --deep coverage — build now signs the
+vendored Mach-Os explicitly first, else notarization rejects; spec targets
+pipeline/vendor/tesseract because assets_root() is _MEIPASS/pipeline — the plan's
+original spec entry was wrong). **B2** ingestion.configure_tesseract() at import +
+smoke step (d2): image-only PDF must reach ready in the bundle (runs BEFORE the
+review-SSE step — its activity marks defer ingest; fails fast on failed/
+needs_review — "error" is not a catalog status). **B3** watched folders recurse
+ONE level (relpath-keyed rescan, symlinked dirs never followed — a link into the
+KB store would self-ingest unbounded). Also: repo renamed to
+janderswag/docuchat.app — remotes, updates.py RELEASES_API, site URLs, test pins
+all updated. Notarized (Accepted), stapled, smoke 7/7 PASSED, DRAFT release staged.
+
+**v0.6.0 (THE engine cycle — G-SCOPE, the false-"missing" fix):** **D1**
+retrieve(source_filename=) hard pre-filter (validated per matter via the cached
+matter filter, escaped like D-35, both dense+FTS arms, apostrophe round-trip
+pinned). **D2** threaded through answer()/answer_stream() — BOTH passes: the
+refusal second pass widens the pool, never the document boundary. **D3**
+single-doc review scopes retrieval (post-filter stays belt-and-braces); scoped
+review of an unindexed doc fails LOUD (400) instead of persisting a fake-complete
+all-"Not located" run; picker filtered to ready/needs_review. **D4** grid
+negative cells re-asked scoped, streamed as cell-verify upgrades
+(verified_scope=document; CSV gains "Check scope" column; client disconnect
+cancels queued verify futures — empirically proven leak otherwise). **D5** review
+job absence verification: every potentially_missing row re-asked per document
+until found or exhausted; flips carry span-verified citations; true absences read
+"Not located in N documents (every document checked individually)"; upgrades are
+COPIES (jobs event history holds emitted dicts BY REFERENCE — in-place mutation
+retroactively rewrote replayed clause events and raced reconnecting clients);
+verify tail is resilient (cancel/failure persists the complete base review with
+verify_stopped marker); summary.verified_absences. **D6** caveats name the pass
+on every export; single-doc caveats say "this document's passages".
+
+**GOLDEN GATE: exactly 63/63 + 9/9 + 0 rejected (run-v060-gate.jsonl)** — the
+unscoped path is byte-identical. Live G-SCOPE proof against the eval baseline:
+indemnification scoped to nimbus_pemberton_msa.pdf -> found with citations on
+that file; scoped to renfrew_demand_letter.pdf -> refusal. Dev suite 45 failures
+== the known eval-data baseline exactly (zero new; verified by diffing failure
+lists against a 144d173 worktree). Discipline held: adversarial review after
+EVERY task — 8 reviews, every finding fixed pre-commit (2 CRITICAL-class: the
+notarization signing gap, the event-history mutation).
+
+**Owner click-through (release notes carry the same lists):** v0.5.1 — scanned
+PDF reaches ready + searchable; subfolder scan lands; "Not located" label in app
++ Word export; folder picker still opens (bridge invisible to headless smoke).
+v0.6.0 — 6+ doc matter review shows the absence pass running; a formerly false
+"missing" flips to Found with a citation; Word export carries the per-document
+caveat.
 
 **2026-07-11 (afternoon/evening) — v0.5.0 BUILT: the council session ("Review &
 Compare and the ingestion truth", docs/council/2026-07-11-council-review-compare-and-

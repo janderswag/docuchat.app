@@ -34,7 +34,7 @@
 - Consumes: the `potentially_missing` status value (UNCHANGED — it is API/persisted-run vocabulary; only display strings change).
 - Produces: display label `"Not located in the passages checked"`; export label `"Not located (passages checked, not a page-by-page read)"`. Later tasks (D5) upgrade these to `"Not located in <filename> (every passage checked)"` when a scoped verification ran.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 # append to pipeline/tests/test_clauses_ui.py
@@ -76,12 +76,12 @@ class TestRetrievalHonestLabels(unittest.TestCase):
 # (arbitration still leads) — only the label text changes.
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `cd ~/legal-document-chat/pipeline && .venv/bin/python -m unittest tests.test_clauses_ui.TestRetrievalHonestLabels tests.test_review_docx -v`
 Expected: FAIL (old labels present, amber badge present)
 
-- [ ] **Step 3: Apply the copy + style changes**
+- [x] **Step 3: Apply the copy + style changes**
 
 ```js
 // app.js — CLAUSE_STATUS (Contract Review rows)
@@ -116,12 +116,12 @@ status_label = {"found": "Found (span-verified)",
 Also update the two summary-chip strings in `app.js` (`reviewTallyHtml` and the old
 `clause-summary` builder) from `" potentially missing"` to `" not located"`.
 
-- [ ] **Step 4: Run the UI + docx + palette batch**
+- [x] **Step 4: Run the UI + docx + palette batch**
 
 Run: `.venv/bin/python -m unittest tests.test_clauses_ui tests.test_review_docx tests.test_grid_ui tests.test_digest_ui -v`
 Expected: PASS. Also `node --check pipeline/static/app.js`.
 
-- [ ] **Step 5: Adversarial review, then commit**
+- [x] **Step 5: Adversarial review, then commit**
 
 ```bash
 git add pipeline/static/app.js pipeline/static/app.css pipeline/routes_clauses.py pipeline/tests/
@@ -147,7 +147,7 @@ without Homebrew Tesseract, every scanned page silently fails OCR.
 **Interfaces:**
 - Produces: `vendor/tesseract/bin/tesseract`, `vendor/tesseract/lib/*.dylib`, `vendor/tesseract/share/tessdata/eng.traineddata` in the repo build tree; inside the bundle at `Contents/Resources/vendor/tesseract/...` (PyInstaller `datas` target `vendor/tesseract`).
 
-- [ ] **Step 1: Write the vendor script**
+- [x] **Step 1: Write the vendor script**
 
 ```bash
 #!/usr/bin/env bash
@@ -175,7 +175,7 @@ cp "$TESSDATA/osd.traineddata" "$VENDOR/share/tessdata/" 2>/dev/null || true
 echo "==> vendored tesseract $("$VENDOR/bin/tesseract" --version 2>&1 | head -1)"
 ```
 
-- [ ] **Step 2: Wire into the build**
+- [x] **Step 2: Wire into the build**
 
 ```bash
 # build_macos.sh, immediately after the Ollama vendor block:
@@ -188,7 +188,7 @@ echo "==> Vendoring Tesseract (scanned-PDF OCR)..."
 ("../vendor/tesseract", "vendor/tesseract"),
 ```
 
-- [ ] **Step 3: Static test**
+- [x] **Step 3: Static test**
 
 ```python
 # append to pipeline/tests/test_deploy_scripts.py
@@ -205,7 +205,7 @@ class TestTesseractVendored(unittest.TestCase):
 
 Run: `.venv/bin/python -m unittest tests.test_deploy_scripts -v` — Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add desktop/vendor_tesseract.sh desktop/build_macos.sh desktop/build_macos.spec pipeline/tests/test_deploy_scripts.py
@@ -223,7 +223,7 @@ git commit -m "build(ocr): vendor tesseract binary + tessdata into the bundle"
   tesseract command string ("system default" when unfrozen/absent). Called once
   at module import.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```python
 # pipeline/tests/test_ocr_bundle.py
@@ -257,7 +257,7 @@ class TestConfigureTesseract(unittest.TestCase):
 
 Run: `.venv/bin/python -m unittest tests.test_ocr_bundle -v` — Expected: FAIL (`configure_tesseract` not defined).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 ```python
 # ingestion.py (module level, near the other imports; apppaths already imported
@@ -279,12 +279,12 @@ def configure_tesseract():
 configure_tesseract()
 ```
 
-- [ ] **Step 3: Run the OCR-adjacent batch**
+- [x] **Step 3: Run the OCR-adjacent batch**
 
 Run: `.venv/bin/python -m unittest tests.test_ocr_bundle tests.test_ingestion -v`
 Expected: test_ocr_bundle PASS; test_ingestion failures no worse than the known eval-data baseline.
 
-- [ ] **Step 4: Extend the packaged smoke gate (step g)**
+- [x] **Step 4: Extend the packaged smoke gate (step g)**
 
 ```bash
 # desktop/smoke_packaged.sh, after step (e) review-SSE, before the version step:
@@ -308,7 +308,7 @@ done
 echo "==> (f2) scanned-page OCR -> ready (vendored tesseract works in the bundle)"
 ```
 
-- [ ] **Step 5: Write the scan generator used by the smoke step**
+- [x] **Step 5: Write the scan generator used by the smoke step**
 
 ```python
 # desktop/make_smoke_scan.py
@@ -330,7 +330,7 @@ img.save(out)
 print(f"wrote {out}")
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add pipeline/ingestion.py pipeline/tests/test_ocr_bundle.py desktop/smoke_packaged.sh desktop/make_smoke_scan.py
@@ -348,7 +348,7 @@ git commit -m "feat(ocr): frozen builds use the vendored tesseract; smoke gate p
 - Consumes: `_seen_mtimes` map from v0.5.0 — key changes from `(folder_id, name)` to `(folder_id, relpath)`.
 - Produces: files in immediate subfolders (`folder/*/file.pdf`) are picked up; deeper nesting is not, and the UI copy says exactly that.
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```python
 # append inside TestWatchedFolders (test_connectors.py)
@@ -382,7 +382,7 @@ git commit -m "feat(ocr): frozen builds use the vendored tesseract; smoke gate p
 
 Run: `.venv/bin/python -m unittest tests.test_connectors.TestWatchedFolders -v` — Expected: the two new tests FAIL.
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 ```python
 # watchers.py scan_once — replace the `entries = sorted(folder.iterdir())` block:
@@ -408,7 +408,7 @@ Run: `.venv/bin/python -m unittest tests.test_connectors.TestWatchedFolders -v` 
 "scanner's dated folders work; deeper nesting does not). " +
 ```
 
-- [ ] **Step 3: Run the batch, adversarial review, commit**
+- [x] **Step 3: Run the batch, adversarial review, commit**
 
 Run: `.venv/bin/python -m unittest tests.test_connectors tests.test_folders_ui -v` — Expected: PASS.
 
@@ -431,7 +431,7 @@ git commit -m "feat(folders): one-level subfolder recursion (scanner trays), rel
 **Interfaces:**
 - Produces: `launcher.total_ram_bytes()` (int; `sysctl -n hw.memsize` on macOS, 0 on failure = never blocks), `launcher.MIN_RAM_BYTES = 16 * 1024**3`, `launcher.ram_ok()` (bool; True when detection fails — fail OPEN, never strand a capable machine on a sysctl quirk). `DOCUCHAT_SKIP_RAM_GATE=1` escape hatch (documented in the dialog itself).
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # append to pipeline/tests/test_launcher.py
@@ -462,7 +462,7 @@ class TestRamGate(unittest.TestCase):
 
 Run: `.venv/bin/python -m unittest tests.test_launcher.TestRamGate -v` — Expected: FAIL.
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 ```python
 # launcher.py, near the other preflight helpers:
@@ -516,7 +516,7 @@ believe this detection is wrong, relaunch from Terminal with
 <p class="muted">Requires an Apple silicon Mac with 16 GB of memory. Your documents never leave it.</p>
 ```
 
-- [ ] **Step 3: Run tests, adversarial review, commit**
+- [x] **Step 3: Run tests, adversarial review, commit**
 
 Run: `.venv/bin/python -m unittest tests.test_launcher tests.test_deploy_scripts -v` — Expected: PASS.
 
@@ -527,11 +527,11 @@ git commit -m "feat(launcher): 16GB RAM gate - refuse with an explanation, fail 
 
 ### Task C2: Ship v0.5.1
 
-- [ ] Bump `pipeline/appversion.py` + `site/index.html` softwareVersion to `0.5.1` (spec imports APP_VERSION); run `tests.test_deploy_scripts`.
-- [ ] Full dev suite: compare against the 45-known-failure baseline; zero new failures.
-- [ ] Eval repo: pull, `PATH="$PWD/pipeline/.venv/bin:$PATH" APPLE_DEV_ID_APP='Developer ID Application: Jake Anderson (8W2KYM5Y4J)' NOTARY_PROFILE=docuchat-notary BUNDLE_OLLAMA=1 ./desktop/build_macos.sh`; check `$?` unpiped. Smoke now has the OCR step — it must PASS.
-- [ ] NO golden gate needed (engine untouched) — but verify `git diff v0.5.0..HEAD -- pipeline/answering.py pipeline/retrieval.py pipeline/verifier.py` is empty before claiming that.
-- [ ] Draft GitHub release with DMG; owner click-through (manual items: folder picker still works; a real scanned page OCRs); owner publishes.
+- [x] Bump `pipeline/appversion.py` + `site/index.html` softwareVersion to `0.5.1` (spec imports APP_VERSION); run `tests.test_deploy_scripts`.
+- [x] Full dev suite: compare against the 45-known-failure baseline; zero new failures.
+- [x] Eval repo: pull, `PATH="$PWD/pipeline/.venv/bin:$PATH" APPLE_DEV_ID_APP='Developer ID Application: Jake Anderson (8W2KYM5Y4J)' NOTARY_PROFILE=docuchat-notary BUNDLE_OLLAMA=1 ./desktop/build_macos.sh`; check `$?` unpiped. Smoke now has the OCR step — it must PASS.
+- [x] NO golden gate needed (engine untouched) — but verify `git diff v0.5.0..HEAD -- pipeline/answering.py pipeline/retrieval.py pipeline/verifier.py` is empty before claiming that.
+- [x] Draft GitHub release with DMG; owner click-through (manual items: folder picker still works; a real scanned page OCRs); owner publishes.
 
 ---
 
@@ -560,7 +560,7 @@ scoping alone rather than risking the batch.
 **Interfaces:**
 - Produces: `retrieve(question, matter=None, top_k=5, db_path=None, rerank=False, candidate_k=20, hybrid=False, fts_query=None, source_filename=None)`. `source_filename` requires `matter` (scope inside a matter only), is validated against the store's filenames for that matter (unknown -> `ValueError`), and is escaped exactly like the matter filter (`chr(39)` doubling).
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 # pipeline/tests/test_retrieval_scope.py
@@ -636,7 +636,7 @@ class TestSourceFilenameScope(unittest.TestCase):
         self.assertEqual(a, b)
 ```
 
-- [ ] **Step 2: Implement in retrieval.py**
+- [x] **Step 2: Implement in retrieval.py**
 
 ```python
 def _scope_filter(table, matter, source_filename, cache_key):
@@ -659,7 +659,7 @@ def _scope_filter(table, matter, source_filename, cache_key):
 
 In `retrieve()`: add the parameter, build `sf = _scope_filter(table, matter, source_filename, key)`, and combine: `filt = f"({filt}) AND ({sf})" if (filt and sf) else (sf or filt)`. Both the dense and FTS arms already flow through `_scoped()` so hybrid inherits it. (Cache the per-matter filename set with the same `_store_matters`-style cache if profiling shows it hot — not speculatively.)
 
-- [ ] **Step 3: Tests green; commit** (`feat(retrieval): source_filename hard pre-filter (G-SCOPE)`)
+- [x] **Step 3: Tests green; commit** (`feat(retrieval): source_filename hard pre-filter (G-SCOPE)`)
 
 ### Task D2: Thread scope through `answer()` / `answer_stream()`
 
@@ -687,11 +687,11 @@ res = answer(clause["question"], matter=matter, top_k=top_k, db_path=db_path,
 
 ### Task D6: The gate cycle + release v0.6.0
 
-- [ ] Update the export caveat to name the per-document verification (routes_clauses docx caveat paragraph + app.js REVIEW_CAVEAT): when a run carries verified rows, the caveat must say the absence pass ran (D5 adversarial-review rider — labels are already scope-aware, the caveat sentence is not).
-- [ ] Full dev suite vs baseline; `node --check`.
-- [ ] Eval repo: `run_golden.py v060-gate` -> `score_golden.py` MUST read exactly `63/63, 9/9, 0 rejected` (unscoped path byte-identical; any drift = STOP, diagnose, do not rationalize).
-- [ ] New G-SCOPE proof against the eval store: scoped ask for a clause known present in ONE doc of a multi-doc matter returns it; the same ask scoped to a doc lacking it refuses. Add to `pipeline/tests/test_retrieval_scope.py` as the live-integration class.
-- [ ] Packaged build + full smoke (incl. OCR + review-SSE steps); adversarial review of the whole workstream; draft release; owner click-through; publish.
+- [x] Update the export caveat to name the per-document verification (routes_clauses docx caveat paragraph + app.js REVIEW_CAVEAT): when a run carries verified rows, the caveat must say the absence pass ran (D5 adversarial-review rider — labels are already scope-aware, the caveat sentence is not).
+- [x] Full dev suite vs baseline; `node --check`.
+- [x] Eval repo: `run_golden.py v060-gate` -> `score_golden.py` MUST read exactly `63/63, 9/9, 0 rejected` (unscoped path byte-identical; any drift = STOP, diagnose, do not rationalize).
+- [x] New G-SCOPE proof against the eval store: scoped ask for a clause known present in ONE doc of a multi-doc matter returns it; the same ask scoped to a doc lacking it refuses. Add to `pipeline/tests/test_retrieval_scope.py` as the live-integration class.
+- [x] Packaged build + full smoke (incl. OCR + review-SSE steps); adversarial review of the whole workstream; draft release; owner click-through; publish.
 
 ---
 
