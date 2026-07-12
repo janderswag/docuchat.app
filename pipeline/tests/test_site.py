@@ -26,11 +26,13 @@ class TestLandingPage(unittest.TestCase):
     def test_three_downloads_present(self):
         # Setup story = Ollama (engine) -> the two models -> the app. The redesigned landing
         # surfaces the models in the stack diagram + wizard copy rather than raw pull commands.
+        # The download-cards section was removed (owner request); the run-from-source path now
+        # lives in the hero fineprint, so assert the path exists rather than the old card copy.
         low = self.html.lower()
         self.assertIn("ollama", low)                       # 1) engine
         self.assertIn("qwen3", low)                        # 2) models (in the stack diagram)
         self.assertIn("bge-m3", low)
-        self.assertIn("run from source today", low)        # 3) the honest get-it path
+        self.assertIn("from source", low)                  # 3) the honest get-it path
 
     def test_download_section_is_honest(self):
         # P2.6/D-65 honesty rule, FLIPPED at v0.1.0: a signed + notarized macOS
@@ -45,7 +47,13 @@ class TestLandingPage(unittest.TestCase):
         self.assertRegex(self.html, r"github\.com/[\w.-]+/docuchat\.app")
 
     def test_windows_coming_soon(self):
-        self.assertIn("coming soon", self.html.lower())
+        # The download cards were removed (owner request), so the Windows promise now lives
+        # only on the hero button. The honesty rule is unchanged: Windows must be marked
+        # not-yet-available, and must never link to a Windows artifact we have not signed.
+        low = self.html.lower()
+        self.assertIn("download for windows", low)
+        self.assertRegex(low, r'download for windows\s*<span class="btn-soon">soon</span>')
+        self.assertNotRegex(low, r'href="[^"]*docuchat[^"]*\.exe"')
 
     def test_privacy_framing(self):
         low = self.html.lower()

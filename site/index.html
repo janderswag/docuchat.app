@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://api.producthunt.com https://ph-files.imgix.net; script-src 'self'; frame-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://api.producthunt.com https://ph-files.imgix.net; script-src 'self'; connect-src 'self' https://api.web3forms.com; frame-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>docuchat.app: your documents, answered, on your own computer</title>
   <meta name="description" content="A private AI for your legal documents. Ask questions, get answers pinned to the exact page and passage, and it runs 100% on your own Mac. No cloud, no account, no telemetry.">
@@ -112,13 +112,12 @@
           <svg viewBox="0 0 24 24" class="apple" aria-hidden="true"><path d="M16.4 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.6 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.2-2.3 1.2-2.4-.1 0-2.2-.9-2.2-3.5zM14.3 6c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>
           Download for Mac
         </a>
-        <a class="btn btn-win" href="#get">
+        <span class="btn btn-win" aria-disabled="true">
           <svg viewBox="0 0 24 24" class="win" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zM10.5 12.5v7.1L3 18.5v-6H10.5zM11.5 4.2 21 3v8.5h-9.5V4.2zM21 12.5V21l-9.5-1.3V12.5H21z"/></svg>
           Download for Windows <span class="btn-soon">soon</span>
-        </a>
+        </span>
       </div>
-      <p class="hero-fineprint reveal" style="--d:320ms">Free &amp; open &middot; no account &middot; no sign-up &middot; <a href="#get">run it from source today</a></p>
-      <p class="hero-fineprint reveal" style="--d:360ms">Requires an Apple silicon Mac with 16 GB of memory. Your documents never leave it.</p>
+      <p class="hero-fineprint reveal" style="--d:320ms">Free &amp; open &middot; no account &middot; no sign-up &middot; <a href="https://github.com/janderswag/docuchat.app" target="_blank" rel="noopener noreferrer">run it from source today</a></p>
 
       <!-- Product shot, directly under the buttons: the LIVE animated demo (auto-plays, loops).
            Swap the iframe src for a real screen-recording later. -->
@@ -180,7 +179,7 @@
         <p>A first-run wizard inside the app walks you through each step and checks it off.
            Everything else (parsing, search, OCR, and the citation checker) is built in.</p>
         <p class="setup-after"><strong>After setup, pull the network cable.</strong> It all runs offline.</p>
-        <a class="setup-link" href="#get">Get docuchat&nbsp;↓</a>
+        <a class="setup-link" href="https://github.com/janderswag/docuchat.app/releases/latest/download/docuchat.dmg">Download for Mac&nbsp;↓</a>
       </div>
 
       <div class="setup-grid">
@@ -206,7 +205,7 @@
             </svg></span>
             <h3>Get docuchat</h3>
             <p>Open it: the first-run wizard fetches the models (qwen3 + bge-m3, ~10&nbsp;GB) for you, once. Then you're set, fully offline.</p>
-            <a href="#get">Get docuchat&nbsp;↓</a>
+            <a href="https://github.com/janderswag/docuchat.app/releases/latest/download/docuchat.dmg">Download for Mac&nbsp;↓</a>
           </article>
         </div>
       </div>
@@ -332,35 +331,6 @@
         </div>
       </section>
     </div>
-
-    <!-- GET -->
-    <section id="get" class="get">
-      <header class="section-head center">
-        <span class="kicker">Download</span>
-        <h2>Open it in a window, not a terminal.</h2>
-      </header>
-      <div class="get-cards">
-        <a class="dl dl-mac" href="https://github.com/janderswag/docuchat.app/releases/latest/download/docuchat.dmg">
-          <svg viewBox="0 0 24 24" class="apple" aria-hidden="true"><path d="M16.4 12.6c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.5 0-2.8.8-3.6 2.2-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.6 2.2 2.7 2.1 1.1 0 1.5-.7 2.8-.7s1.7.7 2.8.7c1.2 0 1.9-1 2.6-2 .8-1.2 1.2-2.3 1.2-2.4-.1 0-2.2-.9-2.2-3.5zM14.3 6c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>
-          <span class="dl-title">Download for macOS</span>
-          <span class="dl-sub">Signed &amp; notarized &middot; Apple silicon &middot; 16 GB memory</span>
-        </a>
-        <div class="dl dl-win" aria-disabled="true">
-          <svg viewBox="0 0 24 24" class="win" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3V5.5zM10.5 12.5v7.1L3 18.5v-6H10.5zM11.5 4.2 21 3v8.5h-9.5V4.2zM21 12.5V21l-9.5-1.3V12.5H21z"/></svg>
-          <span class="dl-title">Windows</span>
-          <span class="dl-sub">Coming soon</span>
-        </div>
-        <a class="dl dl-src" href="https://github.com/janderswag/docuchat.app" target="_blank" rel="noopener noreferrer">
-          <svg viewBox="0 0 24 24" class="srcico" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 3 12 8 18"/><polyline points="16 6 21 12 16 18"/></svg>
-          <span class="dl-title">Run from source today</span>
-          <span class="dl-sub">macOS &middot; Windows &middot; Linux &middot; free &amp; open</span>
-        </a>
-      </div>
-      <p class="get-note">The macOS app is signed and notarized by Apple, so it opens with no security warning;
-         the first-run wizard downloads the local models and checks everything for you. The Windows app is
-         being packaged and signed now and will be linked here the moment it ships. You can also run from
-         source on any platform today.</p>
-    </section>
 
     <!-- FAQ -->
     <section id="faq" class="faq">
@@ -512,6 +482,47 @@
       ]
     }
     </script>
+    <!-- CONTACT -->
+    <section class="contact reveal" id="contact">
+      <div class="contact-inner">
+        <div class="contact-copy">
+          <h3>Questions? Write to me.</h3>
+          <p>I am the person who builds this. Tell me what you practice, what you are trying to get
+             out of a pile of documents, or what broke. I read every message.</p>
+          <p class="contact-direct">
+            <a href="mailto:jacob.mm.anderson@gmail.com">jacob.mm.anderson@gmail.com</a>
+            <button type="button" class="copy-mail" data-mail="jacob.mm.anderson@gmail.com">Copy</button>
+          </p>
+        </div>
+        <form class="contact-form" id="contact-form">
+          <label>
+            <span>Your name</span>
+            <input type="text" name="name" autocomplete="name" required>
+          </label>
+          <label>
+            <span>Your email</span>
+            <input type="email" name="email" autocomplete="email" required>
+          </label>
+          <label>
+            <span>Firm <em>(optional)</em></span>
+            <input type="text" name="firm" autocomplete="organization">
+          </label>
+          <label>
+            <span>Message</span>
+            <textarea name="message" rows="4" required
+              placeholder="I practice family law and I am drowning in discovery PDFs."></textarea>
+          </label>
+          <input type="checkbox" name="botcheck" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button type="submit" class="band-btn primary contact-send">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3zM3 7l9 6 9-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            Send message
+          </button>
+          <p class="contact-status small" id="contact-status" role="status" aria-live="polite"></p>
+          <p class="contact-note small muted">Goes straight to my inbox. Your message is used to answer
+            you, nothing else.</p>
+        </form>
+      </div>
+    </section>
   </main>
 
   <footer class="foot">
@@ -533,6 +544,10 @@
       <a href="https://github.com/janderswag/docuchat.app" target="_blank" rel="noopener noreferrer">Source on GitHub</a> &middot;
       <a href="security.html">Security &amp; data flow</a> &middot;
       <a href="verification.html">How answers are verified</a>.</p>
+    <p class="muted small">Built by Jacob Anderson &middot;
+      <a href="mailto:jacob.mm.anderson@gmail.com">jacob.mm.anderson@gmail.com</a> &middot;
+      <a href="https://cal.com/hawkify/janderswag" target="_blank" rel="noopener noreferrer">Book a call</a> &middot;
+      <a href="https://github.com/janderswag/docuchat.app/issues" target="_blank" rel="noopener noreferrer">Report an issue</a></p>
   </footer>
 
   <script src="script.js"></script>
